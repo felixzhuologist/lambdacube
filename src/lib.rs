@@ -8,9 +8,11 @@ pub mod grammar;
 pub mod eval;
 
 #[wasm_bindgen]
-pub fn eval_code(code: &str) -> i32 {
-    let expr = grammar::ExprParser::new().parse(code).unwrap();
-    eval::eval_(&expr)
+pub fn eval_code(code: &str) -> String {
+    match grammar::ExprParser::new().parse(code) {
+        Ok(ref ast) => eval::eval_ast(ast).to_string(),
+        Err(err) => err.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -22,6 +24,6 @@ mod tests {
         let expr = grammar::ExprParser::new()
             .parse("22 * 44 + 66")
             .unwrap();
-        assert_eq!(eval::eval_(&expr), 1034);
+        assert_eq!(eval::eval_ast(&expr), 1034);
     }
 }
