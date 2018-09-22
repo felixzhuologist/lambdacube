@@ -1,7 +1,9 @@
 use std::fmt;
 
+use ast::ArithOp;
+use ast::BoolOp;
 use ast::Term;
-use ast::Term::{Abs, App, Var, Return};
+use ast::Term::{Arith, Abs, App, Bool, Int, Logic, Not, Var, Return};
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -65,6 +67,8 @@ pub fn eval_ast(term: &Term) -> Result<Term, EvalError> {
 
 pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> {
     match term {
+        Not(box Bool(b)) => { Ok(Bool(!b)) },
+        Not(box t) => { Ok(Not(Box::new(eval_step(t, context)?))) },
         App(box Abs(argname, body), box arg) if arg.is_reduced() => {
             context.push_var(argname.clone(), arg.clone());
             Ok(Return(body.clone()))
@@ -83,6 +87,32 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
             Ok(Return(Box::new(eval_step(term, context)?)))
         },
         Var(s) => { context.lookup(s) },
+        Arith(box Int(a), op, box Int(b)) => {
+            match op {
+                ArithOp::Mul => Ok(Int(a * b)),
+                ArithOp::Div => Ok(Int(a / b)),
+                ArithOp::Add => Ok(Int(a + b)),
+                ArithOp::Sub => Ok(Int(a - b)),
+            }
+        },
+        Arith(left @ box Int(_), op, box right) => {
+            Ok(Arith(left.clone(), op.clone(), Box::new(eval_step(right, context)?)))
+        },
+        Arith(box left, op, right) => {
+            Ok(Arith(Box::new(eval_step(left, context)?), op.clone(), right.clone()))
+        }
+        Logic(box Bool(a), op, box Bool(b)) => {
+            match op {
+                BoolOp::And => Ok(Bool(*a && *b)),
+                BoolOp::Or => Ok(Bool(*a || *b)),
+            }
+        },
+        Logic(left @ box Bool(_), op, box right) => {
+            Ok(Logic(left.clone(), op.clone(), Box::new(eval_step(right, context)?)))
+        },
+        Logic(box left, op, right) => {
+            Ok(Logic(Box::new(eval_step(left, context)?), op.clone(), right.clone()))
+        }
         _ => Ok(term.clone())
     }
 }

@@ -1,22 +1,27 @@
 use std::str::FromStr;
-use ast::Term;
+use ast::{ArithOp, BoolOp, Term};
 
 grammar;
 
-pub Term: Box<Term> = {
-    <AppTerm>,
-    FuncDef <Ident> "." <Term> => Box::new(Term::Abs(<>)),
+pub Expr: Box<Term> = {
+    <Term>,
+    "not" <Expr> => Box::new(Term::Not(<>)),
+    FuncDef <Ident> "." <Expr> => Box::new(Term::Abs(<>)),
+    Term ArithOp Expr => Box::new(Term::Arith(<>)),
+    Term BoolOp Expr => Box::new(Term::Logic(<>)),
 }
 
-AppTerm: Box<Term> = {
+Term: Box<Term> = {
     <ATerm>,
-    AppTerm ATerm => Box::new(Term::App(<>)),
+    Term ATerm => Box::new(Term::App(<>)),
+    Term FactorOp ATerm => Box::new(Term::Arith(<>)),
 }
 
 ATerm: Box<Term> = {
     Ident => Box::new(Term::Var(<>)),
     Num => Box::new(Term::Int(<>)),
-    "(" <Term> ")"
+    Bool => Box::new(Term::Bool(<>)),
+    "(" <Expr> ")",
 }
 
 Ident: String = {
@@ -25,6 +30,26 @@ Ident: String = {
 
 Num: i32 = {
     r"[0-9]+" => i32::from_str(<>).unwrap()
+}
+
+Bool: bool = {
+    "true" => true,
+    "false" => false,
+}
+
+ArithOp: ArithOp = {
+    "+" => ArithOp::Add,
+    "-" => ArithOp::Sub,
+}
+
+FactorOp: ArithOp = {
+    "*" => ArithOp::Mul,
+    "/" => ArithOp::Div,
+}
+
+BoolOp: BoolOp = {
+    "and" => BoolOp::And,
+    "or" => BoolOp::Or,
 }
 
 FuncDef = {
