@@ -1,3 +1,4 @@
 /target
 **/*.rs.bk
+src/grammar.rs
 Cargo.lock
