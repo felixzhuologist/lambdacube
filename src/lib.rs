@@ -6,6 +6,7 @@ extern crate wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
 pub mod ast;
+pub mod assoclist;
 pub mod grammar;
 pub mod eval;
 
@@ -43,12 +44,12 @@ mod tests {
 
     #[test]
     fn check_eval_base() {
-        let mut context = eval::Context::empty();
+        let mut context: eval::Context = assoclist::AssocList::empty();
         assert_eq!(
             eval::eval_step(&Int(3), &mut context).unwrap(),
             Int(3));
 
-        context.push_var("x".to_string(), Int(3));
+        context.push("x".to_string(), Int(3));
         assert_eq!(
             eval::eval_step(&Var("x".to_string()), &mut context).unwrap(),
             Int(3));

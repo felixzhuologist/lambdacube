@@ -1,5 +1,6 @@
 use std::fmt;
 
+use assoclist::AssocList;
 use ast::ArithOp;
 use ast::BoolOp;
 use ast::Term;
@@ -19,42 +20,12 @@ impl fmt::Display for EvalError {
     }
 }
 
-/// implementation of a context using an association list
-pub struct Context {
-    inner: Vec<(String, Term)>
-}
-
-impl Context {
-    pub fn empty() -> Context {
-        Context { inner: Vec::new() }
-    }
-
-    pub fn push_var(&mut self, name: String, val: Term) {
-        self.inner.push((name, val));
-    }
-
-    pub fn pop_var(&mut self) {
-        self.inner.pop();
-    }
-
-    pub fn peek(&self) -> Option<&(String, Term)> {
-        self.inner.last()
-    }
-
-    pub fn lookup(&self, var: &str) -> Result<Term, EvalError> {
-        for (name, val) in self.inner.iter().rev() {
-            if name == var {
-                return Ok(val.clone());
-            }
-        }
-        Err(EvalError::NotFound(var.to_string()))
-    }
-}
+pub type Context = AssocList<String, Term>;
 
 /// call eval step on a term until it is stuck
 pub fn eval_ast(term: &Term) -> Result<Term, EvalError> {
     let mut current = term.clone();
-    let mut context = Context::empty();
+    let mut context: Context = AssocList::empty();
 
     loop {
         let next = eval_step(&current, &mut context)?;
@@ -70,7 +41,7 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
         Not(box Bool(b)) => { Ok(Bool(!b)) },
         Not(box t) => { Ok(Not(Box::new(eval_step(t, context)?))) },
         App(box Abs(argname, body), box arg) if arg.is_reduced() => {
-            context.push_var(argname.clone(), arg.clone());
+            context.push(argname.clone(), arg.clone());
             Ok(Return(body.clone()))
         },
         App(func, box arg) if func.is_val() => {
@@ -80,13 +51,16 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
             Ok(App(Box::new(eval_step(func, context)?), arg.clone()))
         },
         Return(box term) if (*term).is_val() => {
-            context.pop_var();
+            context.pop();
             Ok(term.clone())
         },
         Return(box term) => {
             Ok(Return(Box::new(eval_step(term, context)?)))
         },
-        Var(s) => { context.lookup(s) },
+        Var(s) => { match context.lookup(s.to_string()) {
+            Some(val) => Ok(val),
+            None => Err(EvalError::NotFound(s.to_string()))
+        }},
         Arith(box Int(a), op, box Int(b)) => {
             match op {
                 ArithOp::Mul => Ok(Int(a * b)),
