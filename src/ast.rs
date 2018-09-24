@@ -13,6 +13,7 @@ pub enum Term {
     Return(Box<Term>),
     Arith(Box<Term>, ArithOp, Box<Term>),
     Logic(Box<Term>, BoolOp, Box<Term>),
+    If(Box<Term>, Box<Term>, Box<Term>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,7 +21,14 @@ pub enum ArithOp {
     Mul,
     Div,
     Add,
-    Sub
+    Sub,
+    Mod,
+    Eq_,
+    Neq,
+    Gt,
+    Lt,
+    Gte,
+    Lte,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -60,6 +68,8 @@ impl fmt::Display for Term {
             Term::Return(ref term) => write!(f, "{}", term),
             Term::Arith(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
             Term::Logic(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
+            Term::If(ref cond, ref t1, ref t2) =>
+                write!(f, "if {} then {} else {}", cond, t1, t2)
         }
     }
 }
@@ -71,6 +81,13 @@ impl fmt::Display for ArithOp {
             ArithOp::Div => write!(f, "/"),
             ArithOp::Add => write!(f, "+"),
             ArithOp::Sub => write!(f, "-"),
+            ArithOp::Mod => write!(f, "%"),
+            ArithOp::Eq_ => write!(f, "="),
+            ArithOp::Neq => write!(f, "≠"),
+            ArithOp::Gt => write!(f, ">"),
+            ArithOp::Lt => write!(f, "<"),
+            ArithOp::Gte => write!(f, "≥"),
+            ArithOp::Lte => write!(f, "≤"),
         }
     }
 }

@@ -3,7 +3,7 @@ use std::fmt;
 use ast::ArithOp;
 use ast::BoolOp;
 use ast::Term;
-use ast::Term::{Arith, Abs, App, Bool, Int, Logic, Not, Var, Return};
+use ast::Term::*;
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -93,6 +93,13 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
                 ArithOp::Div => Ok(Int(a / b)),
                 ArithOp::Add => Ok(Int(a + b)),
                 ArithOp::Sub => Ok(Int(a - b)),
+                ArithOp::Mod => Ok(Int(a % b)),
+                ArithOp::Eq_ => Ok(Bool(a == b)),
+                ArithOp::Neq => Ok(Bool(a != b)),
+                ArithOp::Gt => Ok(Bool(a > b)),
+                ArithOp::Lt => Ok(Bool(a < b)),
+                ArithOp::Gte => Ok(Bool(a >= b)),
+                ArithOp::Lte => Ok(Bool(a <= b)),
             }
         },
         Arith(left @ box Int(_), op, box right) => {
@@ -112,6 +119,15 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
         },
         Logic(box left, op, right) => {
             Ok(Logic(Box::new(eval_step(left, context)?), op.clone(), right.clone()))
+        }
+        If(box Bool(b), box t1, box t2) => {
+            Ok(if *b { t1.clone() } else { t2.clone() })
+        },
+        If(box cond, t1, t2) => {
+            Ok(If(
+                Box::new(eval_step(cond, context)?),
+                t1.clone(),
+                t2.clone()))
         }
         _ => Ok(term.clone())
     }

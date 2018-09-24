@@ -6,6 +6,7 @@ grammar;
 pub Expr: Box<Term> = {
     <Term>,
     "not" <Expr> => Box::new(Term::Not(<>)),
+    "if" <Expr> "then" <Expr> "else" <Expr> => Box::new(Term::If(<>)),
     FuncDef <Ident> "." <Expr> => Box::new(Term::Abs(<>)),
     Term ArithOp Expr => Box::new(Term::Arith(<>)),
     Term BoolOp Expr => Box::new(Term::Logic(<>)),
@@ -40,6 +41,13 @@ Bool: bool = {
 ArithOp: ArithOp = {
     "+" => ArithOp::Add,
     "-" => ArithOp::Sub,
+    "%" => ArithOp::Mod,
+    "=" => ArithOp::Eq_,
+    "/=" => ArithOp::Neq,
+    ">" => ArithOp::Gt,
+    "<" => ArithOp::Lt,
+    ">=" => ArithOp::Gte,
+    "<=" => ArithOp::Lte,
 }
 
 FactorOp: ArithOp = {

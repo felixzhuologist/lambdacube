@@ -23,8 +23,13 @@ pub fn eval_code(code: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::Term::{Arith, Int, Var, App, Abs, Return};
+    use ast::Term::*;
     use ast::ArithOp;
+
+    fn eval_code(code: &str) -> String {
+        eval::eval_ast(&grammar::ExprParser::new().parse(code).unwrap())
+            .unwrap().to_string()
+    }
 
     #[test]
     fn check_parse() {
@@ -56,7 +61,7 @@ mod tests {
         let id = Abs(x.clone(), body.clone());
 
         let app = App(Box::new(id.clone()), Box::new(Int(33)));
-        // assert_eq!(eval::eval_ast(&id).unwrap(), id);
+        assert_eq!(eval::eval_ast(&id).unwrap(), id);
 
         let mut context = eval::Context::empty();
         let mut curr = eval::eval_step(&app, &mut context).unwrap();
@@ -99,5 +104,25 @@ mod tests {
                 ArithOp::Add,
                 Box::new(Int(3)),
                 )));
+    }
+
+    #[test]
+    fn ifelse() {
+        assert_eq!(
+            eval::eval_ast(&If(
+                Box::new(Bool(true)),
+                Box::new(Int(3)),
+                Box::new(Int(5))
+                )
+            ).unwrap(),
+            Int(3)
+        )
+    }
+
+    #[test]
+    fn oneliners() {
+        assert_eq!(eval_code("if (3 % 2) = 1 then 10 else 2"), "10");
+        assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
+        assert_eq!(eval_code("(fun x . x*4 + 3) 3"), "15");
     }
 }
