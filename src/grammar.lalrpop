@@ -9,7 +9,7 @@ pub Term: Box<Term> = {
     <AppTerm>,
     "not" <Term> => Box::new(Term::Not(<>)),
     "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
-    "let" <Ident> ":=" <Term> => Box::new(Term::Let(<>)),
+    "let" <Ident> ":=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
     FuncDef <Ident> "." <Term> => Box::new(Term::Abs(<>)),
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),

@@ -8,14 +8,17 @@ use ast::Term::*;
 
 #[derive(Debug)]
 pub enum EvalError {
-    NotFound(String)
+    NameError(String),
+    KeyError(String),
 }
 
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            EvalError::NotFound(ref s) =>
-                write!(f, "eval error: variable {} not found", s)
+            EvalError::NameError(ref s) =>
+                write!(f, "eval error: variable {} not found", s),
+            EvalError::KeyError(ref s) =>
+                write!(f, "eval error: key {} does not exist in record", s)
         }
     }
 }
@@ -57,9 +60,9 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
         Return(box term) => {
             Ok(Return(Box::new(eval_step(term, context)?)))
         },
-        Var(s) => { match context.lookup(s.to_string()) {
+        Var(s) => { match context.lookup(s) {
             Some(val) => Ok(val),
-            None => Err(EvalError::NotFound(s.to_string()))
+            None => Err(EvalError::NameError(s.to_string()))
         }},
         Arith(box Int(a), op, box Int(b)) => {
             match op {
@@ -102,7 +105,41 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
                 Box::new(eval_step(cond, context)?),
                 t1.clone(),
                 t2.clone()))
-        }
+        },
+        Let(varname, box val, box term) if val.is_val() => {
+            context.push(varname.clone(), val.clone());
+            Ok(term.clone())
+        },
+        Let(varname, box val, term) => {
+            Ok(Let(
+                varname.clone(),
+                Box::new(eval_step(val, context)?),
+                term.clone()))
+        },
+        Record(fields) => {
+            // TODO: should probably step one field at a time instead of stepping
+            // them all forward at once
+            let mut new_fields = Vec::new();
+            for (key, box val) in fields.inner.iter() {
+                new_fields.push((key.clone(), Box::new(eval_step(val, context)?)))
+            }
+            Ok(Record(AssocList::from_vec(new_fields)))
+        },
+        Proj(box t, key) if t.is_val() => {
+            match t {
+                Record(fields) => {
+                    let key = key.to_string();
+                    match fields.lookup(&key) {
+                        Some(val) => Ok(*val),
+                        None => Err(EvalError::KeyError(key))
+                    }
+                },
+                _ => panic!("type checking should catch this")
+            }
+        },
+        Proj(box term, key) => {
+            Ok(Proj(Box::new(eval_step(term, context)?), key.clone()))
+        },
         _ => Ok(term.clone())
     }
 }

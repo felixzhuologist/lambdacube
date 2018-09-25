@@ -16,7 +16,7 @@ pub enum Term {
     Arith(Box<Term>, ArithOp, Box<Term>),
     Logic(Box<Term>, BoolOp, Box<Term>),
     If(Box<Term>, Box<Term>, Box<Term>),
-    Let(String, Box<Term>),
+    Let(String, Box<Term>, Box<Term>),
     Record(AssocList<String, Box<Term>>),
     Proj(Box<Term>, String),
 }
@@ -52,8 +52,13 @@ impl Term {
 
     pub fn is_val(&self) -> bool {
         match self {
+            Term::Void => true,
             Term::Int(_) => true,
             Term::Bool(_) => true,
+            Term::Not(box t) => t.is_val(),
+            Term::Abs(_, _) => true,
+            Term::Record(fields) =>
+                fields.inner.iter().all(|(_, val)| val.is_val()),
             _ => false,
         }
     }
@@ -76,7 +81,8 @@ impl fmt::Display for Term {
             Term::If(ref cond, ref t1, ref t2) =>
                 write!(f, "if {} then {} else {}", cond, t1, t2),
             Term::Void => write!(f, "Null"),
-            Term::Let(ref x, ref val) => write!(f, "let {} := {}", x, val),
+            Term::Let(ref x, ref val, ref term) =>
+                write!(f, "let {} := {} in {}", x, val, term),
             Term::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
                 .map(|(k, v)| format!("{}: {}", k, v))
                 .collect::<Vec<String>>()

@@ -28,9 +28,9 @@ impl<K: PartialEq, V: Clone> AssocList<K, V> {
         self.inner.last()
     }
 
-    pub fn lookup(&self, item: K) -> Option<V> {
+    pub fn lookup(&self, item: &K) -> Option<V> {
         for (key, val) in self.inner.iter().rev() {
-            if *key == item {
+            if key == item {
                 return Some(val.clone());
             }
         }
