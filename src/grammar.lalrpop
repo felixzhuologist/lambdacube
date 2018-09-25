@@ -5,33 +5,33 @@ use std::str::FromStr;
 
 grammar;
 
-pub Expr: Box<Term> = {
-    <Term>,
-    "not" <Expr> => Box::new(Term::Not(<>)),
-    "if" <Expr> "then" <Expr> "else" <Expr> => Box::new(Term::If(<>)),
-    "let" <Ident> ":=" <Expr> => Box::new(Term::Let(<>)),
-    FuncDef <Ident> "." <Expr> => Box::new(Term::Abs(<>)),
-    Term ArithOp Expr => Box::new(Term::Arith(<>)),
-    Term BoolOp Expr => Box::new(Term::Logic(<>)),
+pub Term: Box<Term> = {
+    <AppTerm>,
+    "not" <Term> => Box::new(Term::Not(<>)),
+    "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
+    "let" <Ident> ":=" <Term> => Box::new(Term::Let(<>)),
+    FuncDef <Ident> "." <Term> => Box::new(Term::Abs(<>)),
+    AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
+    AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
 
-Term: Box<Term> = {
+AppTerm: Box<Term> = {
     <ATerm>,
-    Term ATerm => Box::new(Term::App(<>)),
-    Term FactorOp ATerm => Box::new(Term::Arith(<>)),
+    AppTerm ATerm => Box::new(Term::App(<>)),
+    AppTerm FactorOp ATerm => Box::new(Term::Arith(<>)),
 }
 
 ATerm: Box<Term> = {
     Ident => Box::new(Term::Var(<>)),
     Num => Box::new(Term::Int(<>)),
     Bool => Box::new(Term::Bool(<>)),
-    "(" <Expr> ")",
+    "(" <Term> ")",
     "{" <CommaSep<RecordField>> "}" =>
         Box::new(Term::Record(AssocList::from_vec(<>))),
 }
 
 RecordField: (String, Box<Term>) = {
-    <Ident> ":" <Expr> => (<>)
+    <Ident> ":" <Term> => (<>)
 }
 
 CommaSep<T>: Vec<T> = {

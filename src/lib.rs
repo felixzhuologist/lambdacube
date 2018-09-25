@@ -12,7 +12,7 @@ pub mod eval;
 
 #[wasm_bindgen]
 pub fn eval_code(code: &str) -> String {
-    match grammar::ExprParser::new().parse(code) {
+    match grammar::TermParser::new().parse(code) {
         Ok(ref ast) => match eval::eval_ast(ast) {
             Ok(result) => result.to_string(),
             Err(err) => err.to_string()
@@ -28,14 +28,14 @@ mod tests {
     use ast::ArithOp;
 
     fn eval_code(code: &str) -> String {
-        eval::eval_ast(&grammar::ExprParser::new().parse(code).unwrap())
+        eval::eval_ast(&grammar::TermParser::new().parse(code).unwrap())
             .unwrap().to_string()
     }
 
     #[test]
     fn check_parse() {
         assert_eq!(
-            grammar::ExprParser::new().parse("fun x . 0").unwrap(),
+            grammar::TermParser::new().parse("fun x . 0").unwrap(),
             Box::new(Abs(
                 "x".to_string(),
                 Box::new(Int(0))))
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn check_arith_parse() {
         assert_eq!(
-            grammar::ExprParser::new().parse("1 + 2 + 3").unwrap(),
+            grammar::TermParser::new().parse("1 + 2 + 3").unwrap(),
             Box::new(Arith(
                 Box::new(Int(1)),
                 ArithOp::Add,
@@ -95,7 +95,7 @@ mod tests {
                 )));
 
        assert_eq!(
-            grammar::ExprParser::new().parse("1 * 2 + 3").unwrap(),
+            grammar::TermParser::new().parse("1 * 2 + 3").unwrap(),
             Box::new(Arith(
                 Box::new(Arith(
                     Box::new(Int(1)),
