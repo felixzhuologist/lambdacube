@@ -16,9 +16,14 @@ pub Term: Box<Term> = {
 }
 
 AppTerm: Box<Term> = {
+    <PathTerm>,
+    AppTerm PathTerm => Box::new(Term::App(<>)),
+    AppTerm FactorOp PathTerm => Box::new(Term::Arith(<>)),
+}
+
+PathTerm: Box<Term> = {
+    <PathTerm> "." <Ident> => Box::new(Term::Proj(<>)),
     <ATerm>,
-    AppTerm ATerm => Box::new(Term::App(<>)),
-    AppTerm FactorOp ATerm => Box::new(Term::Arith(<>)),
 }
 
 ATerm: Box<Term> = {
