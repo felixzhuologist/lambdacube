@@ -125,5 +125,7 @@ mod tests {
         assert_eq!(eval_code("if (3 % 2) = 1 then 10 else 2"), "10");
         assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
         assert_eq!(eval_code("(fun x . x*4 + 3) 3"), "15");
+        assert_eq!(eval_code("let x := 5"), "let x := 5");
+        assert_eq!(eval_code("{a: 1, b: 2}"), "{a: 1, b: 2}");
     }
 }

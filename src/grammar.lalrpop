@@ -1,5 +1,7 @@
-use std::str::FromStr;
+use assoclist::{AssocList};
 use ast::{ArithOp, BoolOp, Term};
+
+use std::str::FromStr;
 
 grammar;
 
@@ -7,6 +9,7 @@ pub Expr: Box<Term> = {
     <Term>,
     "not" <Expr> => Box::new(Term::Not(<>)),
     "if" <Expr> "then" <Expr> "else" <Expr> => Box::new(Term::If(<>)),
+    "let" <Ident> ":=" <Expr> => Box::new(Term::Let(<>)),
     FuncDef <Ident> "." <Expr> => Box::new(Term::Abs(<>)),
     Term ArithOp Expr => Box::new(Term::Arith(<>)),
     Term BoolOp Expr => Box::new(Term::Logic(<>)),
@@ -23,6 +26,23 @@ ATerm: Box<Term> = {
     Num => Box::new(Term::Int(<>)),
     Bool => Box::new(Term::Bool(<>)),
     "(" <Expr> ")",
+    "{" <CommaSep<RecordField>> "}" =>
+        Box::new(Term::Record(AssocList::from_vec(<>))),
+}
+
+RecordField: (String, Box<Term>) = {
+    <Ident> ":" <Expr> => (<>)
+}
+
+CommaSep<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(field) => {
+            let mut v = v;
+            v.push(field);
+            v
+        }
+    }
 }
 
 Ident: String = {

@@ -1,7 +1,9 @@
+use assoclist::AssocList;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term {
+    Void,
     Bool(bool),
     Not(Box<Term>),
     Var(String),
@@ -14,6 +16,9 @@ pub enum Term {
     Arith(Box<Term>, ArithOp, Box<Term>),
     Logic(Box<Term>, BoolOp, Box<Term>),
     If(Box<Term>, Box<Term>, Box<Term>),
+    Let(String, Box<Term>),
+    Record(AssocList<String, Box<Term>>),
+    Proj(Box<Term>, String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -69,7 +74,14 @@ impl fmt::Display for Term {
             Term::Arith(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
             Term::Logic(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
             Term::If(ref cond, ref t1, ref t2) =>
-                write!(f, "if {} then {} else {}", cond, t1, t2)
+                write!(f, "if {} then {} else {}", cond, t1, t2),
+            Term::Void => write!(f, "Null"),
+            Term::Let(ref x, ref val) => write!(f, "let {} := {}", x, val),
+            Term::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
+                .map(|(k, v)| format!("{}: {}", k, v))
+                .collect::<Vec<String>>()
+                .join(", ")),
+            Term::Proj(ref t, ref attr) => write!(f, "{}.{}", t, attr)
         }
     }
 }
