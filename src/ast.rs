@@ -22,7 +22,7 @@ pub enum Term {
     Proj(Box<Term>, String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ArithOp {
     Mul,
     Div,
@@ -37,7 +37,7 @@ pub enum ArithOp {
     Lte,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BoolOp {
     And,
     Or
