@@ -1,5 +1,6 @@
 use assoclist::{AssocList};
 use ast::{ArithOp, BoolOp, Term};
+use typecheck::Type;
 
 use std::str::FromStr;
 
@@ -10,7 +11,7 @@ pub Term: Box<Term> = {
     "not" <Term> => Box::new(Term::Not(<>)),
     "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
     "let" <Ident> ":=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
-    FuncDef <Ident> "." <Term> => Box::new(Term::Abs(<>)),
+    FuncDef <Ident> ":" <Type> "." <Term> => Box::new(Term::Abs(<>)),
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
@@ -89,4 +90,13 @@ FuncDef = {
     "lambda",
     "λ",
     "fun"
+}
+
+Type: Box<Type> = {
+    <_Type> => Box::new(<>)
+}
+
+_Type: Type = {
+    "Bool" => Type::Bool,
+    "Int" => Type::Int,
 }

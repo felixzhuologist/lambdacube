@@ -1,14 +1,15 @@
 use assoclist::AssocList;
+use typecheck::Type;
+
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term {
-    Void,
     Bool(bool),
     Not(Box<Term>),
     Var(String),
     Int(i32),
-    Abs(String, Box<Term>),
+    Abs(String, Box<Type>, Box<Term>),
     App(Box<Term>, Box<Term>),
     // when performing a substitution, we wrap the body in a Return to let any
     // AST manipulators know when to pop from the context
@@ -52,11 +53,10 @@ impl Term {
 
     pub fn is_val(&self) -> bool {
         match self {
-            Term::Void => true,
             Term::Int(_) => true,
             Term::Bool(_) => true,
             Term::Not(box t) => t.is_val(),
-            Term::Abs(_, _) => true,
+            Term::Abs(_, _, _) => true,
             Term::Record(fields) =>
                 fields.inner.iter().all(|(_, val)| val.is_val()),
             _ => false,
@@ -71,8 +71,8 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(ref argname, ref body) =>
-                write!(f, "fun {} . {}", argname, body),
+            Term::Abs(ref argname, ref ty, ref body) =>
+                write!(f, "fun {}: {} . {}", argname, ty, body),
             Term::App(ref func, ref arg) =>
                 write!(f, "{} {}", func, arg),
             Term::Return(ref term) => write!(f, "{}", term),
@@ -80,7 +80,6 @@ impl fmt::Display for Term {
             Term::Logic(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
             Term::If(ref cond, ref t1, ref t2) =>
                 write!(f, "if {} then {} else {}", cond, t1, t2),
-            Term::Void => write!(f, "Null"),
             Term::Let(ref x, ref val, ref term) =>
                 write!(f, "let {} := {} in {}", x, val, term),
             Term::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
@@ -118,4 +117,3 @@ impl fmt::Display for BoolOp {
         }
     }
 }
-

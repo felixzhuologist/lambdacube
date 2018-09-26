@@ -9,13 +9,19 @@ pub mod ast;
 pub mod assoclist;
 pub mod grammar;
 pub mod eval;
+pub mod typecheck;
 
 #[wasm_bindgen]
 pub fn eval_code(code: &str) -> String {
     match grammar::TermParser::new().parse(code) {
-        Ok(ref ast) => match eval::eval_ast(ast) {
-            Ok(result) => result.to_string(),
-            Err(err) => err.to_string()
+        Ok(ref ast) => {
+            match typecheck::typecheck(ast, &mut typecheck::Context::empty()) {
+                Ok(type_) => match eval::eval_ast(ast) {
+                    Ok(result) => format!("{}: {}", result, type_),
+                    Err(err) => err.to_string(),
+                },
+                Err(err) => err.to_string(),
+            }
         },
         Err(err) => err.to_string()
     }
@@ -34,12 +40,22 @@ mod tests {
         }
     }
 
+    fn typecheck_code(code: &str) -> String {
+        match typecheck::typecheck(
+            &grammar::TermParser::new().parse(code).unwrap(),
+            &mut typecheck::Context::empty()) {
+            Ok(type_) => type_.to_string(),
+            Err(err) => err.to_string()
+        }
+    }
+
     #[test]
     fn check_parse() {
         assert_eq!(
-            grammar::TermParser::new().parse("fun x . 0").unwrap(),
+            grammar::TermParser::new().parse("fun x: Bool . 0").unwrap(),
             Box::new(Abs(
                 "x".to_string(),
+                Box::new(typecheck::Type::Bool),
                 Box::new(Int(0))))
         );
     }
@@ -61,7 +77,10 @@ mod tests {
     fn check_eval_func() {
         let x = "x".to_string();
         let body = Box::new(Var(x.clone()));
-        let id = Abs(x.clone(), body.clone());
+        let id = Abs(
+            x.clone(),
+            Box::new(typecheck::Type::Int),
+            body.clone());
 
         let app = App(Box::new(id.clone()), Box::new(Int(33)));
         assert_eq!(eval::eval_ast(&id).unwrap(), id);
@@ -123,13 +142,18 @@ mod tests {
     }
 
     #[test]
-    fn e2e() {
+    fn e2e_eval() {
         assert_eq!(eval_code("if (3 % 2) = 1 then 10 else 2"), "10");
         assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
-        assert_eq!(eval_code("(fun x . x*4 + 3) 3"), "15");
+        assert_eq!(eval_code("(fun x: Int . x*4 + 3) 3"), "15");
         assert_eq!(eval_code("let x := 5 in x"), "5");
         assert_eq!(eval_code("{a: 1, b: 2}"), "{a: 1, b: 2}");
         assert_eq!(eval_code("{a: 2}.a"), "2");
         assert_eq!(eval_code("{a: 2}.b"), "eval error: key b does not exist in record");
+    }
+
+    #[test]
+    fn e2e_type() {
+        assert_eq!(typecheck_code("if true then 0 else 2"), "Int");
     }
 }

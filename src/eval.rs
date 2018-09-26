@@ -43,7 +43,7 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
     match term {
         Not(box Bool(b)) => { Ok(Bool(!b)) },
         Not(box t) => { Ok(Not(Box::new(eval_step(t, context)?))) },
-        App(box Abs(argname, body), box arg) if arg.is_reduced() => {
+        App(box Abs(argname, _, body), box arg) if arg.is_reduced() => {
             context.push(argname.clone(), arg.clone());
             Ok(Return(body.clone()))
         },
