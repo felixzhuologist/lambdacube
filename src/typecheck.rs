@@ -98,7 +98,7 @@ pub fn typecheck(term: &Term, context: &mut Context) -> Result<Type, TypeError> 
             match typecheck(func, context)? {
                 Type::Arr(box in_type, box out_type) => {
                     match typecheck(val, context)? {
-                        ref t if *t == in_type => Ok(out_type.clone()),
+                        ref t if is_subtype(t, &in_type) => Ok(out_type.clone()),
                         t => Err(TypeError::ArgMismatch(in_type, t))
                     }
                 },
@@ -155,5 +155,59 @@ pub fn typecheck(term: &Term, context: &mut Context) -> Result<Type, TypeError> 
             }
         },
         _ => unimplemented!()
+    }
+}
+
+pub fn is_subtype(left: &Type, right: &Type) -> bool {
+   left == right ||
+   match (left, right) {
+        (Type::Record(fields1), Type::Record(fields2)) => {
+            fields2.inner.iter().all(|(key, ltype)| match fields1.lookup(key) {
+                Some(ref rtype) => is_subtype(ltype, rtype),
+                None => false
+            })
+
+        },
+        (Type::Arr(in1, out1), Type::Arr(in2, out2)) => {
+            is_subtype(in2, in1) && is_subtype(out1, out2)
+        },
+        _ => false
+   }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn subtyping() {
+        // types are equal
+        assert!(is_subtype(&Type::Bool, &Type::Bool));
+        assert!(is_subtype(
+            &Type::Arr(Box::new(Type::Int), Box::new(Type::Bool)),
+            &Type::Arr(Box::new(Type::Int), Box::new(Type::Bool))));
+
+        // width subtyping
+        let small_rec = Type::Record(AssocList::from_vec(
+            vec![("a".to_string(), Box::new(Type::Int))]));
+        let big_rec = Type::Record(AssocList::from_vec(
+            vec![("a".to_string(), Box::new(Type::Int)), ("b".to_string(), Box::new(Type::Bool))]));
+        assert!(is_subtype(&big_rec, &small_rec));
+
+        // depth subtyping
+        let shallow = Type::Record(AssocList::from_vec(
+            vec![("a".to_string(), Box::new(small_rec.clone()))]));
+        let deep = Type::Record(AssocList::from_vec(
+            vec![("a".to_string(), Box::new(big_rec.clone()))]));
+        assert!(is_subtype(&shallow, &deep));
+
+        // function subtyping is contravariant for input, covariant for output
+        let f1 = Type::Arr(
+            Box::new(small_rec.clone()),
+            Box::new(shallow.clone()));
+        let f2 = Type::Arr(
+            Box::new(big_rec.clone()),
+            Box::new(deep.clone()));
+        assert!(is_subtype(&f1, &f2));
     }
 }
