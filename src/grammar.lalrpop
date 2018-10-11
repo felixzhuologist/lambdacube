@@ -1,6 +1,5 @@
 use assoclist::{AssocList};
-use ast::{ArithOp, BoolOp, Term};
-use typecheck::Type;
+use syntax::{ArithOp, BoolOp, Term, Type};
 
 use std::str::FromStr;
 

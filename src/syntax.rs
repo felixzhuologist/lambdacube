@@ -1,5 +1,4 @@
 use assoclist::AssocList;
-use typecheck::Type;
 
 use std::fmt;
 
@@ -20,27 +19,6 @@ pub enum Term {
     Let(String, Box<Term>, Box<Term>),
     Record(AssocList<String, Box<Term>>),
     Proj(Box<Term>, String),
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ArithOp {
-    Mul,
-    Div,
-    Add,
-    Sub,
-    Mod,
-    Eq_,
-    Neq,
-    Gt,
-    Lt,
-    Gte,
-    Lte,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum BoolOp {
-    And,
-    Or
 }
 
 impl Term {
@@ -91,6 +69,45 @@ impl fmt::Display for Term {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Type {
+    Bool,
+    Int,
+    Arr(Box<Type>, Box<Type>),
+    Record(AssocList<String, Box<Type>>),
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Type::Bool => write!(f, "Bool"),
+            Type::Int => write!(f, "Int"),
+            // TODO: parenthesize
+            Type::Arr(ref from, ref to) => write!(f, "{} -> {}", from, to),
+            // TODO: refactor repeated code?
+            Type::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
+                .map(|(k, v)| format!("{}: {}", k, v))
+                .collect::<Vec<String>>()
+                .join(", ")),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ArithOp {
+    Mul,
+    Div,
+    Add,
+    Sub,
+    Mod,
+    Eq_,
+    Neq,
+    Gt,
+    Lt,
+    Gte,
+    Lte,
+}
+
 impl fmt::Display for ArithOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -107,6 +124,12 @@ impl fmt::Display for ArithOp {
             ArithOp::Lte => write!(f, "≤"),
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum BoolOp {
+    And,
+    Or
 }
 
 impl fmt::Display for BoolOp {

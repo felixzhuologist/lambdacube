@@ -27,9 +27,9 @@ Repl.propTypes = {
 const run = async () => {
 const lib = import('./lambdacube');
 
-const { eval_code } = await lib;
+const { eval_simple } = await lib;
 ReactDOM.render(
-    <Repl eval_code={eval_code} />,
+    <Repl eval_code={eval_simple} />,
     document.getElementById('root')
 )
 

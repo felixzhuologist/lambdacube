@@ -1,34 +1,14 @@
-use std::fmt;
-
-use assoclist::AssocList;
-use ast::ArithOp;
-use ast::BoolOp;
-use ast::Term;
-use ast::Term::*;
-
-#[derive(Debug)]
-pub enum EvalError {
-    NameError(String),
-    KeyError(String),
-}
-
-impl fmt::Display for EvalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            EvalError::NameError(ref s) =>
-                write!(f, "eval error: variable {} not found", s),
-            EvalError::KeyError(ref s) =>
-                write!(f, "eval error: key {} does not exist in record", s)
-        }
-    }
-}
-
-pub type Context = AssocList<String, Term>;
+use ::assoclist::{AssocList, TermContext as Context};
+use ::errors::EvalError;
+use ::syntax::ArithOp;
+use ::syntax::BoolOp;
+use ::syntax::Term;
+use ::syntax::Term::*;
 
 /// call eval step on a term until it is stuck
 pub fn eval_ast(term: &Term) -> Result<Term, EvalError> {
     let mut current = term.clone();
-    let mut context: Context = AssocList::empty();
+    let mut context: Context = Context::empty();
 
     loop {
         let next = eval_step(&current, &mut context)?;
@@ -141,5 +121,84 @@ pub fn eval_step(term: &Term, context: &mut Context) -> Result<Term, EvalError> 
             Ok(Proj(Box::new(eval_step(term, context)?), key.clone()))
         },
         _ => Ok(term.clone())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::assoclist::TermContext;
+    use ::syntax::Type;
+
+    fn eval_code(code: &str) -> String {
+        match eval_ast(&::grammar::TermParser::new().parse(code).unwrap()) {
+            Ok(ast) => ast.to_string(),
+            Err(err) => err.to_string()
+        }
+    }
+
+    #[test]
+    fn check_eval_base() {
+        let mut context: TermContext = TermContext::empty();
+        assert_eq!(
+            eval_step(&Int(3), &mut context).unwrap(),
+            Int(3));
+
+        context.push("x".to_string(), Int(3));
+        assert_eq!(
+            eval_step(&Var("x".to_string()), &mut context).unwrap(),
+            Int(3));
+    }   
+
+    #[test]
+    fn check_eval_func() {
+        let x = "x".to_string();
+        let body = Box::new(Var(x.clone()));
+        let id = Abs(
+            x.clone(),
+            Box::new(Type::Int),
+            body.clone());
+
+        let app = App(Box::new(id.clone()), Box::new(Int(33)));
+        assert_eq!(eval_ast(&id).unwrap(), id);
+
+        let mut context = TermContext::empty();
+        let mut curr = eval_step(&app, &mut context).unwrap();
+        assert_eq!(curr, Return(body));
+        assert_eq!(*context.peek().unwrap(), (x.clone(), Int(33)));
+
+        curr = eval_step(&curr, &mut context).unwrap();
+        assert_eq!(curr, Return(Box::new(Int(33))));
+        assert_eq!(*context.peek().unwrap(), (x.clone(), Int(33)));
+
+        curr = eval_step(&curr, &mut context).unwrap();
+        assert_eq!(curr, Int(33));
+        assert!(context.peek().is_none());
+
+        assert_eq!(eval_ast(&app).unwrap(), Int(33));
+    }
+
+    #[test]
+    fn ifelse() {
+        assert_eq!(
+            eval_ast(&If(
+                Box::new(Bool(true)),
+                Box::new(Int(3)),
+                Box::new(Int(5))
+                )
+            ).unwrap(),
+            Int(3)
+        )
+    }
+
+    #[test]
+    fn e2e_eval() {
+        assert_eq!(eval_code("if (3 % 2) = 1 then 10 else 2"), "10");
+        assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
+        assert_eq!(eval_code("(fun x: Int . x*4 + 3) 3"), "15");
+        assert_eq!(eval_code("let x := 5 in x"), "5");
+        assert_eq!(eval_code("{a: 1, b: 2}"), "{a: 1, b: 2}");
+        assert_eq!(eval_code("{a: 2}.a"), "2");
+        assert_eq!(eval_code("{a: 2}.b"), "eval error: key b does not exist in record");
     }
 }
