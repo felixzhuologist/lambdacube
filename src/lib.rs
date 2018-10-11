@@ -4,15 +4,15 @@ extern crate lalrpop_util;
 extern crate wasm_bindgen;
 
 pub mod assoclist;
-pub mod grammar;
 pub mod errors;
-pub mod syntax;
+pub mod grammar;
 pub mod simple;
 pub mod sub;
+pub mod syntax;
 
-use wasm_bindgen::prelude::*;
 use errors::{EvalError, TypeError};
 use syntax::{Term, Type};
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn eval_simple(code: &str) -> String {
@@ -31,21 +31,22 @@ pub trait TypeSystem {
     fn eval_code(&self, code: &str) -> String {
         self.parse(code)
             .and_then(|ref ast| {
-                self.typecheck(ast)
-                    .map_err(|e| e.to_string())
-                    .and_then(|type_| self.eval(ast)
-                        .map(|val| format!("{}: {}", val, type_))
-                        .map_err(|e| e.to_string()))
-            })
-            .unwrap_or_else(|err_msg| err_msg)
+                self.typecheck(ast).map_err(|e| e.to_string()).and_then(
+                    |type_| {
+                        self.eval(ast)
+                            .map(|val| format!("{}: {}", val, type_))
+                            .map_err(|e| e.to_string())
+                    },
+                )
+            }).unwrap_or_else(|err_msg| err_msg)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syntax::Term::*;
     use syntax::ArithOp;
+    use syntax::Term::*;
 
     #[test]
     fn check_parse() {
@@ -54,7 +55,8 @@ mod tests {
             Box::new(Abs(
                 "x".to_string(),
                 Box::new(Type::Bool),
-                Box::new(Int(0))))
+                Box::new(Int(0))
+            ))
         );
     }
 
@@ -69,19 +71,21 @@ mod tests {
                     Box::new(Int(2)),
                     ArithOp::Add,
                     Box::new(Int(3))
-                    ))
-                )));
+                ))
+            ))
+        );
 
-       assert_eq!(
+        assert_eq!(
             grammar::TermParser::new().parse("1 * 2 + 3").unwrap(),
             Box::new(Arith(
                 Box::new(Arith(
                     Box::new(Int(1)),
                     ArithOp::Mul,
                     Box::new(Int(2))
-                    )),
+                )),
                 ArithOp::Add,
                 Box::new(Int(3)),
-                )));
+            ))
+        );
     }
 }

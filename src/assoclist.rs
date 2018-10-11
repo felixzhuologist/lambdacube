@@ -6,7 +6,7 @@ pub type TypeContext = AssocList<String, ::syntax::Type>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssocList<K: PartialEq, V: Clone> {
-    pub inner: Vec<(K, V)>
+    pub inner: Vec<(K, V)>,
 }
 
 impl<K: PartialEq, V: Clone> AssocList<K, V> {

@@ -1,0 +1,4 @@
+ignore = [
+    "src/grammar.rs",
+    ]
+max_width = 80

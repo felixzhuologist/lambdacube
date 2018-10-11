@@ -25,7 +25,7 @@ impl Term {
     pub fn is_reduced(&self) -> bool {
         match self {
             Term::App(_, _) => false,
-            _ => true
+            _ => true,
         }
     }
 
@@ -35,8 +35,9 @@ impl Term {
             Term::Bool(_) => true,
             Term::Not(box t) => t.is_val(),
             Term::Abs(_, _, _) => true,
-            Term::Record(fields) =>
-                fields.inner.iter().all(|(_, val)| val.is_val()),
+            Term::Record(fields) => {
+                fields.inner.iter().all(|(_, val)| val.is_val())
+            }
             _ => false,
         }
     }
@@ -49,22 +50,33 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(ref argname, ref ty, ref body) =>
-                write!(f, "fun {}: {} . {}", argname, ty, body),
-            Term::App(ref func, ref arg) =>
-                write!(f, "{} {}", func, arg),
+            Term::Abs(ref argname, ref ty, ref body) => {
+                write!(f, "fun {}: {} . {}", argname, ty, body)
+            }
+            Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::Return(ref term) => write!(f, "{}", term),
-            Term::Arith(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
-            Term::Logic(ref l, ref op, ref r) => write!(f, "{} {} {}", l, op, r),
-            Term::If(ref cond, ref t1, ref t2) =>
-                write!(f, "if {} then {} else {}", cond, t1, t2),
-            Term::Let(ref x, ref val, ref term) =>
-                write!(f, "let {} := {} in {}", x, val, term),
-            Term::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
-                .map(|(k, v)| format!("{}: {}", k, v))
-                .collect::<Vec<String>>()
-                .join(", ")),
-            Term::Proj(ref t, ref attr) => write!(f, "{}.{}", t, attr)
+            Term::Arith(ref l, ref op, ref r) => {
+                write!(f, "{} {} {}", l, op, r)
+            }
+            Term::Logic(ref l, ref op, ref r) => {
+                write!(f, "{} {} {}", l, op, r)
+            }
+            Term::If(ref cond, ref t1, ref t2) => {
+                write!(f, "if {} then {} else {}", cond, t1, t2)
+            }
+            Term::Let(ref x, ref val, ref term) => {
+                write!(f, "let {} := {} in {}", x, val, term)
+            }
+            Term::Record(ref rec) => write!(
+                f,
+                "{{{}}}",
+                rec.inner
+                    .iter()
+                    .map(|(k, v)| format!("{}: {}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Term::Proj(ref t, ref attr) => write!(f, "{}.{}", t, attr),
         }
     }
 }
@@ -85,10 +97,15 @@ impl fmt::Display for Type {
             // TODO: parenthesize
             Type::Arr(ref from, ref to) => write!(f, "{} -> {}", from, to),
             // TODO: refactor repeated code?
-            Type::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
-                .map(|(k, v)| format!("{}: {}", k, v))
-                .collect::<Vec<String>>()
-                .join(", ")),
+            Type::Record(ref rec) => write!(
+                f,
+                "{{{}}}",
+                rec.inner
+                    .iter()
+                    .map(|(k, v)| format!("{}: {}", k, v))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -129,7 +146,7 @@ impl fmt::Display for ArithOp {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BoolOp {
     And,
-    Or
+    Or,
 }
 
 impl fmt::Display for BoolOp {
