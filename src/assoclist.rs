@@ -1,6 +1,8 @@
 // Bare bones implementation of an association list. We use an assoc list
 // instead of a std::collections::HashMap since currently performance is not a
 // concern and to make the compiled web assembly as small as possible
+pub type TermContext = AssocList<String, ::syntax::Term>;
+pub type TypeContext = AssocList<String, ::syntax::Type>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssocList<K: PartialEq, V: Clone> {

@@ -1,74 +1,7 @@
-use assoclist::AssocList;
-use ast::Term;
-use ast::{ArithOp, BoolOp};
-use ast::ArithOp::*;
-use std::fmt;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Type {
-    Bool,
-    Int,
-    Arr(Box<Type>, Box<Type>),
-    Record(AssocList<String, Box<Type>>),
-}
-
-impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Type::Bool => write!(f, "Bool"),
-            Type::Int => write!(f, "Int"),
-            // TODO: parenthesize
-            Type::Arr(ref from, ref to) => write!(f, "{} -> {}", from, to),
-            // TODO: refactor repeated code?
-            Type::Record(ref rec) => write!(f, "{{{}}}", rec.inner.iter()
-                .map(|(k, v)| format!("{}: {}", k, v))
-                .collect::<Vec<String>>()
-                .join(", ")),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum TypeError {
-    NegateNonBool,
-    NameError(String),
-    ArgMismatch(Type, Type),
-    FuncApp,
-    Arith(ArithOp, Type, Type),
-    Logic(BoolOp, Type, Type),
-    IfElseCond,
-    IfElseArms(Type, Type),
-    InvalidKey(String),
-    ProjectNonRecord
-}
-
-impl fmt::Display for TypeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            TypeError::NegateNonBool =>
-                write!(f, "Attempted to negate non boolean value"),
-            TypeError::NameError(ref s) =>
-                write!(f, "Variable {} not found", s),
-            TypeError::ArgMismatch(ref expected, ref actual) =>
-                write!(f, "Expected argument of type {} got but {} instead",
-                    expected, actual),
-            TypeError::FuncApp => write!(f, "Tried to apply non function type"),
-            TypeError::Arith(ref op, ref left, ref right) =>
-                write!(f, "Cannot apply {} to {} and {}", op, left, right),
-            TypeError::Logic(ref op, ref left, ref right) =>
-                write!(f, "Cannot apply {} to {} and {}", op, left, right),
-            TypeError::IfElseCond => write!(f, "If/else condition must be a Bool"),
-            TypeError::IfElseArms(ref left, ref right) =>
-                write!(f, "If/else arms have mismatched types: {} and {}",
-                    left, right),
-            TypeError::InvalidKey(ref s) =>
-                write!(f, "Record does not have key {}", s),
-            TypeError::ProjectNonRecord => write!(f, "Can only project record types")
-        }
-    }
-}
-
-pub type Context = AssocList<String, Type>;
+use ::assoclist::{AssocList, TypeContext as Context};
+use ::errors::TypeError;
+use ::syntax::{Term, Type};
+use ::syntax::ArithOp::*;
 
 pub fn typecheck(term: &Term, context: &mut Context) -> Result<Type, TypeError> {
     match term {
