@@ -3,14 +3,31 @@
   <head>
     <meta charset="utf-8">
     <title>λ³</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <link rel="stylesheet" href="dist/tln.min.css"/>
+    <link rel="stylesheet" href="index.css"/>
+    <script src="dist/tln.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"   integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E="   crossorigin="anonymous"></script>
   </head>
   <body>
+    <script src="dist/jqconsole.min.js"></script>
     <script src="./index.js"></script>
-    <div>
-        <textarea id="repl-input">
-        </textarea>
-        <input type="submit" value="run" id="repl-submit"/>
-        <p id="result" />
+    <ul class="nav justify-content-center">
+      <li class="nav-item">
+        <button type="button" class="btn btn-light" id="batch-submit">Run</button>
+      </li>
+    </ul>
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col">
+          <div class="editor">
+            <textarea id="batch-input"></textarea>
+          </div>
+        </div>
+        <div class="col">
+          <div id="console"></div>
+        </div>
+      </div>
     </div>
   </body>
 </html>

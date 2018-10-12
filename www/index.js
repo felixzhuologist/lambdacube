@@ -1,16 +1,26 @@
 const lib = import('./lambdacube');
-
 const run = async () => {
 
 const { eval_simple } = await lib;
 
-const submitButton = document.getElementById('repl-submit')
-submitButton.addEventListener('click', event => {
-    const result = document.getElementById("result");
-    const input = document.getElementById("repl-input").value;
-    result.innerHTML = eval_simple(input);
-})
+const jqconsole = $('#console').jqconsole('', '❯❯❯ ');
+const startPrompt = () => {
+    jqconsole.Prompt(true, (input) => {
+        jqconsole.Write(eval_simple(input) + '\n', 'jqconsole-output');
+        startPrompt();
+    })
+};
 
+const submitButton = document.getElementById('batch-submit')
+submitButton.addEventListener('click', event => {
+    const input = document.getElementById("batch-input").value;
+    jqconsole.Reset();
+    jqconsole.Write(eval_simple(input) + '\n', 'jqconsole-output');
+    startPrompt();
+});
+
+TLN.append_line_numbers('batch-input');
+startPrompt();
 }
 
 run();
