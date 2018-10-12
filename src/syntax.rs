@@ -34,9 +34,11 @@ pub enum Term {
 }
 
 impl Term {
+    // TODO: there is probably a better way to do this
     pub fn is_reduced(&self) -> bool {
         match self {
             Term::App(_, _) => false,
+            Term::Return(_) => false,
             _ => true,
         }
     }
@@ -75,7 +77,7 @@ impl fmt::Display for Term {
                 write!(f, "if {} then {} else {}", cond, t1, t2)
             }
             Term::Let(ref x, ref val, ref term) => {
-                write!(f, "let {} := {} in {}", x, val, term)
+                write!(f, "let {} = {} in {}", x, val, term)
             }
             Term::Record(ref rec) => write!(
                 f,

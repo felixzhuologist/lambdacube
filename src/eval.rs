@@ -201,5 +201,13 @@ mod tests {
             eval_code("{a=2}.b"),
             "eval error: key b does not exist in record"
         );
+        assert_eq!(
+            eval_code(
+                "let twice = fun f: (Int -> Int) . f (f 0) in
+                 let addone = fun x: Int . x + 1 in
+                 twice addone"
+            ),
+            "2"
+        );
     }
 }
