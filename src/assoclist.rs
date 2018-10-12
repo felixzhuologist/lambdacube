@@ -10,7 +10,7 @@ pub struct AssocList<K: PartialEq, V: Clone> {
 }
 
 impl<K: PartialEq, V: Clone> AssocList<K, V> {
-    pub fn empty() -> AssocList<K, V> {
+    pub const fn empty() -> AssocList<K, V> {
         AssocList { inner: Vec::new() }
     }
 

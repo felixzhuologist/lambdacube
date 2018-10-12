@@ -6,12 +6,10 @@ use syntax::Term;
 use syntax::Term::*;
 
 /// call eval step on a term until it is stuck
-pub fn eval_ast(term: &Term) -> Result<Term, EvalError> {
+pub fn eval_ast(term: &Term, ctx: &mut Context) -> Result<Term, EvalError> {
     let mut current = term.clone();
-    let mut context: Context = Context::empty();
-
     loop {
-        let next = eval_step(&current, &mut context)?;
+        let next = eval_step(&current, ctx)?;
         if current == next {
             return Ok(current);
         }
@@ -133,7 +131,10 @@ mod tests {
     use syntax::Type;
 
     fn eval_code(code: &str) -> String {
-        match eval_ast(&::grammar::TermParser::new().parse(code).unwrap()) {
+        match eval_ast(
+            &::grammar::TermParser::new().parse(code).unwrap(),
+            &mut TermContext::empty(),
+        ) {
             Ok(ast) => ast.to_string(),
             Err(err) => err.to_string(),
         }
@@ -153,12 +154,13 @@ mod tests {
 
     #[test]
     fn check_eval_func() {
+        let mut ctx = TermContext::empty();
         let x = "x".to_string();
         let body = Box::new(Var(x.clone()));
         let id = Abs(x.clone(), Box::new(Type::Int), body.clone());
 
         let app = App(Box::new(id.clone()), Box::new(Int(33)));
-        assert_eq!(eval_ast(&id).unwrap(), id);
+        assert_eq!(eval_ast(&id, &mut ctx).unwrap(), id);
 
         let mut context = TermContext::empty();
         let mut curr = eval_step(&app, &mut context).unwrap();
@@ -173,24 +175,23 @@ mod tests {
         assert_eq!(curr, Int(33));
         assert!(context.peek().is_none());
 
-        assert_eq!(eval_ast(&app).unwrap(), Int(33));
+        assert_eq!(eval_ast(&app, &mut ctx).unwrap(), Int(33));
     }
 
     #[test]
     fn ifelse() {
         assert_eq!(
-            eval_ast(&If(
-                Box::new(Bool(true)),
-                Box::new(Int(3)),
-                Box::new(Int(5))
-            )).unwrap(),
+            eval_ast(
+                &If(Box::new(Bool(true)), Box::new(Int(3)), Box::new(Int(5))),
+                &mut TermContext::empty()
+            ).unwrap(),
             Int(3)
         )
     }
 
     #[test]
     fn e2e_eval() {
-        assert_eq!(eval_code("if (3 % 2) = 1 then 10 else 2"), "10");
+        assert_eq!(eval_code("if (3 % 2) == 1 then 10 else 2"), "10");
         assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
         assert_eq!(eval_code("(fun x: Int . x*4 + 3) 3"), "15");
         assert_eq!(eval_code("let x = 5 in x"), "5");
