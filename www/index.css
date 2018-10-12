@@ -6,6 +6,11 @@
     margin: 12px;
 }
 
+.nav-item {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
 .col {
     margin: 0px;
 }

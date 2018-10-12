@@ -21,9 +21,17 @@ impl Program {
         }
     }
 
-    pub fn eval(&mut self, code: &str) -> String {
+    pub fn reset(&mut self) {
         self.term_ctx = TermContext::empty();
         self.ty_ctx = TypeContext::empty();
+    }
+
+    pub fn set_typechecker(&mut self, tc: TypeChecker) {
+        self.typecheck = tc;
+    }
+
+    pub fn eval(&mut self, code: &str) -> String {
+        self.reset();
 
         ::grammar::ToplevelParser::new()
             .parse(code)
