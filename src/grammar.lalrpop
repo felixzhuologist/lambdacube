@@ -9,7 +9,7 @@ pub Term: Box<Term> = {
     <AppTerm>,
     "not" <Term> => Box::new(Term::Not(<>)),
     "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
-    "let" <Ident> ":=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
+    "let" <Ident> "=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
     FuncDef <Ident> ":" <Type> "." <Term> => Box::new(Term::Abs(<>)),
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
@@ -36,18 +36,7 @@ ATerm: Box<Term> = {
 }
 
 RecordField: (String, Box<Term>) = {
-    <Ident> ":" <Term> => (<>)
-}
-
-CommaSep<T>: Vec<T> = {
-    <v:(<T> ",")*> <e:T?> => match e {
-        None => v,
-        Some(field) => {
-            let mut v = v;
-            v.push(field);
-            v
-        }
-    }
+    <Ident> "=" <Term> => (<>)
 }
 
 Ident: String = {
@@ -91,11 +80,30 @@ FuncDef = {
     "fun"
 }
 
-Type: Box<Type> = {
-    <_Type> => Box::new(<>)
+pub Type: Box<Type> = {
+    <AType>,
+    <AType> "->" <Type> => Box::new(Type::Arr(<>)),
 }
 
-_Type: Type = {
-    "Bool" => Type::Bool,
-    "Int" => Type::Int,
+AType: Box<Type> = {
+    "(" <Type> ")",
+    "{" <CommaSep<RecordFieldType>> "}" =>
+        Box::new(Type::Record(AssocList::from_vec(<>))),
+    "Bool" => Box::new(Type::Bool),
+    "Int" => Box::new(Type::Int),
+}
+
+RecordFieldType: (String, Box<Type>) = {
+    <Ident> ":" <Type> => (<>)
+}
+
+CommaSep<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(field) => {
+            let mut v = v;
+            v.push(field);
+            v
+        }
+    }
 }

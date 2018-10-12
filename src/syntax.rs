@@ -50,9 +50,7 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(ref argname, ref ty, ref body) => {
-                write!(f, "fun {}: {} . {}", argname, ty, body)
-            }
+            Term::Abs(_, _, _) => write!(f, "<func>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::Return(ref term) => write!(f, "{}", term),
             Term::Arith(ref l, ref op, ref r) => {
@@ -72,7 +70,7 @@ impl fmt::Display for Term {
                 "{{{}}}",
                 rec.inner
                     .iter()
-                    .map(|(k, v)| format!("{}: {}", k, v))
+                    .map(|(k, v)| format!("{}={}", k, v))
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
