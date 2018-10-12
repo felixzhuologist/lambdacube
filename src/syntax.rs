@@ -1,4 +1,4 @@
-use assoclist::AssocList;
+use assoclist::{AssocList, TypeContext};
 
 use std::fmt;
 
@@ -62,7 +62,7 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(_, _, _) => write!(f, "<func>"),
+            Term::Abs(_, _, _) => write!(f, "<fun>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::Return(ref term) => write!(f, "{}", term),
             Term::Arith(ref l, ref op, ref r) => {
@@ -97,6 +97,28 @@ pub enum Type {
     Int,
     Arr(Box<Type>, Box<Type>),
     Record(AssocList<String, Box<Type>>),
+    Var(String),
+}
+
+impl Type {
+    pub fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
+        match *self {
+            Type::Bool => Ok(Type::Bool),
+            Type::Int => Ok(Type::Int),
+            Type::Arr(ref from, ref to) => Ok(Type::Arr(
+                Box::new(from.resolve(ctx)?),
+                Box::new(to.resolve(ctx)?),
+            )),
+            Type::Record(ref fields) => {
+                let mut new_fields = Vec::new();
+                for (key, box val) in fields.inner.iter() {
+                    new_fields.push((key.clone(), Box::new(val.resolve(ctx)?)))
+                }
+                Ok(Type::Record(AssocList::from_vec(new_fields)))
+            }
+            Type::Var(ref s) => ctx.lookup(s).ok_or(s.clone()),
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -105,7 +127,7 @@ impl fmt::Display for Type {
             Type::Bool => write!(f, "Bool"),
             Type::Int => write!(f, "Int"),
             // TODO: parenthesize
-            Type::Arr(ref from, ref to) => write!(f, "{} -> {}", from, to),
+            Type::Arr(ref from, ref to) => write!(f, "({} -> {})", from, to),
             // TODO: refactor repeated code?
             Type::Record(ref rec) => write!(
                 f,
@@ -116,6 +138,7 @@ impl fmt::Display for Type {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Type::Var(ref s) => write!(f, "{}", s),
         }
     }
 }

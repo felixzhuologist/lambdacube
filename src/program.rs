@@ -6,6 +6,8 @@ type TypeChecker = fn(&Term, &mut TypeContext) -> Result<Type, TypeError>;
 
 pub struct Program {
     term_ctx: TermContext,
+    // TODO: since type alias names and variable names have no overlap, ty_ctx
+    // is used to store both. should probably separate them at some point
     ty_ctx: TypeContext,
     typecheck: TypeChecker,
 }
@@ -72,8 +74,8 @@ impl Program {
                     ()
                 })
             }
-            Binder::TyBind(_s, _ty) => {
-                // TODO
+            Binder::TyBind(s, ty) => {
+                self.ty_ctx.push(s.clone(), ty);
                 Ok(())
             }
         }
@@ -95,8 +97,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn update_context() {
+    fn binders() {
         let mut prog = Program::new();
         assert_eq!(prog.eval("let x = 5; x;"), "5: Int\n");
+
+        assert_eq!(
+            prog.eval(
+                "type IntFunc = Int -> Int;
+                 fun f: IntFunc . f 0;"
+            ),
+            "<fun>: ((Int -> Int) -> Int)\n"
+        );
     }
 }

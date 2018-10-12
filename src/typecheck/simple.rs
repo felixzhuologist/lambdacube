@@ -19,9 +19,12 @@ pub fn typecheck(
             None => Err(TypeError::NameError(s.to_string())),
         },
         Term::Abs(param, box type_, box body) => {
-            context.push(param.clone(), type_.clone());
+            let ty = type_
+                .resolve(context)
+                .map_err(|s| TypeError::NameError(s))?;
+            context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
-                Box::new(type_.clone()),
+                Box::new(ty),
                 Box::new(typecheck(body, context)?),
             ));
             context.pop();
@@ -110,7 +113,7 @@ mod tests {
             typecheck_code("let x = 0 in if x + 2 then 0 else 2"),
             "If/else condition must be a Bool"
         );
-        assert_eq!(typecheck_code("fun x: Int . x >= 0"), "Int -> Bool");
+        assert_eq!(typecheck_code("fun x: Int . x >= 0"), "(Int -> Bool)");
         assert_eq!(typecheck_code("3 4"), "Tried to apply non function type");
         assert_eq!(typecheck_code("(fun x: Int . x*2 + 1) 0"), "Int");
     }

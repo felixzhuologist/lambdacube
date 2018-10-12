@@ -109,6 +109,7 @@ AType: Box<Type> = {
         Box::new(Type::Record(AssocList::from_vec(<>))),
     "Bool" => Box::new(Type::Bool),
     "Int" => Box::new(Type::Int),
+    <TyIdent> => Box::new(Type::Var(<>)),
 }
 
 RecordFieldType: (String, Box<Type>) = {
