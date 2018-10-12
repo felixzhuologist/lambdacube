@@ -3,6 +3,18 @@ use assoclist::AssocList;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Command {
+    Binder(Binder),
+    Term(Box<Term>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Binder {
+    VarBind(String, Term),
+    TyBind(String, Type),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term {
     Bool(bool),
     Not(Box<Term>),

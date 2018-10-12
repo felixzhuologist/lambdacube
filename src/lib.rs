@@ -46,7 +46,7 @@ pub trait TypeSystem {
 mod tests {
     use super::*;
     use assoclist::AssocList;
-    use syntax::ArithOp;
+    use syntax::{ArithOp, Binder};
     use syntax::Term::*;
 
     #[test]
@@ -128,6 +128,25 @@ mod tests {
                 ("a".into(), Box::new(Type::Int)),
                 ("b".into(), Box::new(Type::Bool)),
             ])))
+        );
+    }
+
+    #[test]
+    fn check_binder_parse() {
+        assert_eq!(
+            grammar::BinderParser::new().parse("type IntFunc = Int -> Int").unwrap(),
+            Binder::TyBind(
+                "IntFunc".into(),
+                Type::Arr(Box::new(Type::Int), Box::new(Type::Int))
+            )
+        );
+
+        assert_eq!(
+            grammar::BinderParser::new().parse("let myrec = {a=2}").unwrap(),
+            Binder::VarBind(
+                "myrec".into(),
+                Record(AssocList::from_vec(vec![("a".into(), Box::new(Int(2)))]))
+            )
         );
     }
 }

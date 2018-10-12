@@ -1,9 +1,23 @@
 use assoclist::{AssocList};
-use syntax::{ArithOp, BoolOp, Term, Type};
+use syntax::{ArithOp, BoolOp, Term, Type, Command, Binder};
 
 use std::str::FromStr;
 
 grammar;
+
+pub Toplevel: Vec<Command> = {
+    <(<Command> ";")+>
+}
+
+pub Command: Command = {
+    <Binder> => Command::Binder(<>),
+    <Term> => Command::Term(<>),
+}
+
+pub Binder: Binder = {
+    "let" <s:Ident> "=" <t:Term> => Binder::VarBind(s, *t),
+    "type" <s:TyIdent> "=" <t:Type> => Binder::TyBind(s, *t),
+}
 
 pub Term: Box<Term> = {
     <AppTerm>,
@@ -39,8 +53,12 @@ RecordField: (String, Box<Term>) = {
     <Ident> "=" <Term> => (<>)
 }
 
+TyIdent: String = {
+    r"[A-Z][a-zA-Z0-9_]*" => <>.to_string()
+}
+
 Ident: String = {
-    r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.to_string()
+    r"[a-z_][a-zA-Z0-9_]*" => <>.to_string()
 }
 
 Num: i32 = {
@@ -98,6 +116,9 @@ RecordFieldType: (String, Box<Type>) = {
 }
 
 CommaSep<T>: Vec<T> = {
+    // lalrpop macro syntax:
+    // v matches a * amount of "T," and return Vec<T>
+    // e possibly matches a T, returning an Option<T>
     <v:(<T> ",")*> <e:T?> => match e {
         None => v,
         Some(field) => {
