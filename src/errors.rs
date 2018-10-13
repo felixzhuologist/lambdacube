@@ -33,6 +33,7 @@ pub enum TypeError {
     InvalidKey(String),
     ProjectNonRecord,
     UnifyError,
+    Unsupported,
 }
 
 impl fmt::Display for TypeError {
@@ -70,8 +71,10 @@ impl fmt::Display for TypeError {
             TypeError::ProjectNonRecord => {
                 write!(f, "Can only project record types")
             }
-            TypeError::UnifyError => {
-                write!(f, "Error during type inference")
+            TypeError::UnifyError => write!(f, "Error during type inference"),
+            // TODO: this shoudl probably be a syntax error
+            TypeError::Unsupported => {
+                write!(f, "Type inference is unsupported for the current mode")
             }
         }
     }

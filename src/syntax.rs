@@ -21,6 +21,7 @@ pub enum Term {
     Var(String),
     Int(i32),
     Abs(String, Box<Type>, Box<Term>),
+    InfAbs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
     // when performing a substitution, we wrap the body in a Return to let any
     // AST manipulators know when to pop from the context
@@ -49,6 +50,7 @@ impl Term {
             Term::Bool(_) => true,
             Term::Not(box t) => t.is_val(),
             Term::Abs(_, _, _) => true,
+            Term::InfAbs(_, _) => true,
             Term::Record(fields) => {
                 fields.inner.iter().all(|(_, val)| val.is_val())
             }
@@ -64,7 +66,7 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(_, _, _) => write!(f, "<fun>"),
+            Term::Abs(_, _, _) | Term::InfAbs(_, _) => write!(f, "<fun>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::Return(ref term) => write!(f, "{}", term),
             Term::Arith(ref l, ref op, ref r) => {

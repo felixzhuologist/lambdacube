@@ -28,6 +28,10 @@ pub fn eval_step(
             context.push(argname.clone(), arg.clone());
             Ok(Return(body.clone()))
         }
+        App(box InfAbs(argname, body), box arg) if arg.is_reduced() => {
+            context.push(argname.clone(), arg.clone());
+            Ok(Return(body.clone()))
+        }
         App(func, box arg) if func.is_val() => {
             Ok(App(func.clone(), Box::new(eval_step(arg, context)?)))
         }

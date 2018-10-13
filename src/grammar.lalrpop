@@ -25,6 +25,7 @@ pub Term: Box<Term> = {
     "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
     "let" <Ident> "=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
     FuncDef <Ident> ":" <Type> "." <Term> => Box::new(Term::Abs(<>)),
+    FuncDef <Ident> "." <Term> => Box::new(Term::InfAbs(<>)),
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
