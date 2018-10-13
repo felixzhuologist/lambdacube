@@ -32,6 +32,7 @@ pub enum TypeError {
     IfElseArms(Type, Type),
     InvalidKey(String),
     ProjectNonRecord,
+    UnifyError,
 }
 
 impl fmt::Display for TypeError {
@@ -68,6 +69,9 @@ impl fmt::Display for TypeError {
             }
             TypeError::ProjectNonRecord => {
                 write!(f, "Can only project record types")
+            }
+            TypeError::UnifyError => {
+                write!(f, "Error during type inference")
             }
         }
     }

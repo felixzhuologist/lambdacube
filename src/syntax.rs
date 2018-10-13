@@ -160,6 +160,16 @@ pub enum ArithOp {
     Lte,
 }
 
+impl ArithOp {
+    pub fn return_type(&self) -> Type {
+        use self::ArithOp::*;
+        match *self {
+            Mul | Div | Add | Sub | Mod => Type::Int,
+            Eq_ | Neq | Gt | Lt | Gte | Lte => Type::Bool,
+        }
+    }
+}
+
 impl fmt::Display for ArithOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {

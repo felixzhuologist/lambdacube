@@ -1,6 +1,5 @@
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::ArithOp::*;
 use syntax::{Term, Type};
 
 pub fn typecheck(
@@ -41,10 +40,7 @@ pub fn typecheck(
         },
         Term::Arith(box left, op, box right) => {
             match (typecheck(left, context)?, typecheck(right, context)?) {
-                (Type::Int, Type::Int) => match op {
-                    Mul | Div | Add | Sub | Mod => Ok(Type::Int),
-                    Eq_ | Neq | Gt | Lt | Gte | Lte => Ok(Type::Bool),
-                },
+                (Type::Int, Type::Int) => Ok(op.return_type()),
                 (l, r) => Err(TypeError::Arith(*op, l, r)),
             }
         }
@@ -86,7 +82,7 @@ pub fn typecheck(
             },
             _ => Err(TypeError::ProjectNonRecord),
         },
-        _ => unimplemented!(),
+        Term::Return(_) => panic!("should not get here"),
     }
 }
 

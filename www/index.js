@@ -6,6 +6,7 @@ const { eval_line, eval_program, set_typechecker } = await lib;
 const featureSelector = $('#feature-selector');
 const features = [
     { value: 'subtyping', enabled: false, display: 'Subtyping' },
+    { value: 'hm', enabled: false, display: 'Hindley-Milner' },
     { value: 'universal', enabled: false, display: 'Universal types' },
     { value: 'existential', enabled: false, display: 'Existential types' },
     { value: 'higher', enabled: false, display: 'Higher order types' },
@@ -16,7 +17,8 @@ const features = [
 // together. e.g. [true, false, true] means that feature 1 and 3 can be used
 // together
 const combinations = [
-    [true, false, false, false, false, false],
+    [true, false, false, false, false, false, false],
+    [false, true, false, false, false, false, false],
 ];
 
 const updateOptions = () => {
