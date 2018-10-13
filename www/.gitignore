@@ -1,4 +1,8 @@
 node_modules/
+dist/*index.js
+dist/*.wasm
+now.json
+
 lambdacube.js
 lambdacube.d.ts
 lambdacube_bg.wasm
