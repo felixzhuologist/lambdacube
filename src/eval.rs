@@ -24,13 +24,13 @@ pub fn eval_step(
     match term {
         Not(box Bool(b)) => Ok(Bool(!b)),
         Not(box t) => Ok(Not(Box::new(eval_step(t, context)?))),
-        App(box Abs(argname, _, body), box arg) if arg.is_reduced() => {
+        App(box Abs(argname, _, box body), box arg) if arg.is_reduced() => {
             context.push(argname.clone(), arg.clone());
-            Ok(Return(body.clone()))
+            Ok(applysubst(body.clone(), context))
         }
-        App(box InfAbs(argname, body), box arg) if arg.is_reduced() => {
+        App(box InfAbs(argname, box body), box arg) if arg.is_reduced() => {
             context.push(argname.clone(), arg.clone());
-            Ok(Return(body.clone()))
+            Ok(applysubst(body.clone(), context))
         }
         App(func, box arg) if func.is_val() => {
             Ok(App(func.clone(), Box::new(eval_step(arg, context)?)))
@@ -38,11 +38,6 @@ pub fn eval_step(
         App(box func, arg) => {
             Ok(App(Box::new(eval_step(func, context)?), arg.clone()))
         }
-        Return(box term) if (*term).is_val() => {
-            context.pop();
-            Ok(term.clone())
-        }
-        Return(box term) => Ok(Return(Box::new(eval_step(term, context)?))),
         Var(s) => match context.lookup(s) {
             Some(val) => Ok(val),
             None => Err(EvalError::NameError(s.to_string())),
@@ -128,16 +123,67 @@ pub fn eval_step(
     }
 }
 
+fn applysubst(term: Term, ctx: &mut Context) -> Term {
+    match term {
+        t @ Bool(_) | t @ Int(_) => t,
+        Not(box t) => Not(Box::new(applysubst(t, ctx))),
+        Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
+        Abs(param, ty, box body) => {
+            ctx.push(param.clone(), Var(param.clone()));
+            let body = applysubst(body, ctx);
+            ctx.pop();
+            Abs(param, ty, Box::new(body))
+        }
+        InfAbs(param, box body) => {
+            ctx.push(param.clone(), Var(param.clone()));
+            let body = applysubst(body, ctx);
+            ctx.pop();
+            InfAbs(param, Box::new(body))
+        }
+        App(box func, box val) => App(
+            Box::new(applysubst(func, ctx)),
+            Box::new(applysubst(val, ctx)),
+        ),
+        Arith(box l, op, box r) => Arith(
+            Box::new(applysubst(l, ctx)),
+            op,
+            Box::new(applysubst(r, ctx)),
+        ),
+        Logic(box l, op, box r) => Logic(
+            Box::new(applysubst(l, ctx)),
+            op,
+            Box::new(applysubst(r, ctx)),
+        ),
+        If(box cond, box if_, box else_) => If(
+            Box::new(applysubst(cond, ctx)),
+            Box::new(applysubst(if_, ctx)),
+            Box::new(applysubst(else_, ctx)),
+        ),
+        Let(s, val, box rest) => {
+            ctx.push(s.clone(), Var(s.clone()));
+            let rest = applysubst(rest, ctx);
+            ctx.pop();
+            Let(s, val, Box::new(rest))
+        }
+        Record(fields) => Record(AssocList::from_vec(
+            fields
+                .inner
+                .into_iter()
+                .map(|(field, box val)| (field, Box::new(applysubst(val, ctx))))
+                .collect(),
+        )),
+        Proj(box t, field) => Proj(Box::new(applysubst(t, ctx)), field),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assoclist::TermContext;
-    use syntax::Type;
 
     fn eval_code(code: &str) -> String {
         match eval_ast(
             &::grammar::TermParser::new().parse(code).unwrap(),
-            &mut TermContext::empty(),
+            &mut Context::empty(),
         ) {
             Ok(ast) => ast.to_string(),
             Err(err) => err.to_string(),
@@ -146,7 +192,7 @@ mod tests {
 
     #[test]
     fn check_eval_base() {
-        let mut context: TermContext = TermContext::empty();
+        let mut context = Context::empty();
         assert_eq!(eval_step(&Int(3), &mut context).unwrap(), Int(3));
 
         context.push("x".to_string(), Int(3));
@@ -157,37 +203,11 @@ mod tests {
     }
 
     #[test]
-    fn check_eval_func() {
-        let mut ctx = TermContext::empty();
-        let x = "x".to_string();
-        let body = Box::new(Var(x.clone()));
-        let id = Abs(x.clone(), Box::new(Type::Int), body.clone());
-
-        let app = App(Box::new(id.clone()), Box::new(Int(33)));
-        assert_eq!(eval_ast(&id, &mut ctx).unwrap(), id);
-
-        let mut context = TermContext::empty();
-        let mut curr = eval_step(&app, &mut context).unwrap();
-        assert_eq!(curr, Return(body));
-        assert_eq!(*context.peek().unwrap(), (x.clone(), Int(33)));
-
-        curr = eval_step(&curr, &mut context).unwrap();
-        assert_eq!(curr, Return(Box::new(Int(33))));
-        assert_eq!(*context.peek().unwrap(), (x.clone(), Int(33)));
-
-        curr = eval_step(&curr, &mut context).unwrap();
-        assert_eq!(curr, Int(33));
-        assert!(context.peek().is_none());
-
-        assert_eq!(eval_ast(&app, &mut ctx).unwrap(), Int(33));
-    }
-
-    #[test]
     fn ifelse() {
         assert_eq!(
             eval_ast(
                 &If(Box::new(Bool(true)), Box::new(Int(3)), Box::new(Int(5))),
-                &mut TermContext::empty()
+                &mut Context::empty()
             ).unwrap(),
             Int(3)
         )
@@ -213,5 +233,23 @@ mod tests {
             ),
             "2"
         );
+        assert_eq!(
+            eval_code(
+                "let double = fun f . fun a . f (f a) in
+                 let addone = fun x . x + 1 in
+                 double addone 0"
+            ),
+            "2"
+        );
+        assert_eq!(eval_code("(fun b . not b) true"), "false");
+    }
+
+    #[test]
+    fn substitution() {
+        let mut ctx = Context::from_vec(vec![(String::from("x"), Int(5))]);
+        assert_eq!(applysubst(Var(String::from("x")), &mut ctx), Int(5));
+        let id_func =
+            InfAbs(String::from("x"), Box::new(Var(String::from("x"))));
+        assert_eq!(applysubst(id_func.clone(), &mut ctx), id_func);
     }
 }

@@ -71,7 +71,7 @@ impl fmt::Display for TypeError {
             TypeError::ProjectNonRecord => {
                 write!(f, "Can only project record types")
             }
-            TypeError::UnifyError => write!(f, "Error during type inference"),
+            TypeError::UnifyError => write!(f, "Type error"),
             // TODO: this shoudl probably be a syntax error
             TypeError::Unsupported => {
                 write!(f, "Type inference is unsupported for the current mode")

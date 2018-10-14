@@ -98,7 +98,6 @@ pub fn get_constraints(
             Ok((tyres, constr))
         }
         Term::Record(_) | Term::Proj(_, _) => unimplemented!(),
-        Term::Return(_) => panic!("should not get here"),
     }
 }
 

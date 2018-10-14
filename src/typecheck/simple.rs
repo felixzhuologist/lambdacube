@@ -83,7 +83,6 @@ pub fn typecheck(
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::InfAbs(_, _) => Err(TypeError::Unsupported),
-        Term::Return(_) => panic!("should not get here"),
     }
 }
 

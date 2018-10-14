@@ -23,9 +23,6 @@ pub enum Term {
     Abs(String, Box<Type>, Box<Term>),
     InfAbs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
-    // when performing a substitution, we wrap the body in a Return to let any
-    // AST manipulators know when to pop from the context
-    Return(Box<Term>),
     Arith(Box<Term>, ArithOp, Box<Term>),
     Logic(Box<Term>, BoolOp, Box<Term>),
     If(Box<Term>, Box<Term>, Box<Term>),
@@ -39,7 +36,6 @@ impl Term {
     pub fn is_reduced(&self) -> bool {
         match self {
             Term::App(_, _) => false,
-            Term::Return(_) => false,
             _ => true,
         }
     }
@@ -68,7 +64,6 @@ impl fmt::Display for Term {
             Term::Int(n) => write!(f, "{}", n),
             Term::Abs(_, _, _) | Term::InfAbs(_, _) => write!(f, "<fun>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
-            Term::Return(ref term) => write!(f, "{}", term),
             Term::Arith(ref l, ref op, ref r) => {
                 write!(f, "{} {} {}", l, op, r)
             }
