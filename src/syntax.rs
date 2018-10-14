@@ -30,6 +30,7 @@ pub enum Term {
     Let(String, Box<Term>, Box<Term>),
     Record(AssocList<String, Box<Term>>),
     Proj(Box<Term>, String),
+    SetProj(Box<Term>, String, Box<Term>),
 }
 
 impl Term {
@@ -58,6 +59,7 @@ impl Term {
             | Term::Logic(_, _, _)
             | Term::If(_, _, _)
             | Term::Let(_, _, _)
+            | Term::SetProj(_, _, _)
             | Term::Proj(_, _) => false,
         }
     }
@@ -95,6 +97,9 @@ impl fmt::Display for Term {
                     .join(", ")
             ),
             Term::Proj(ref t, ref attr) => write!(f, "{}.{}", t, attr),
+            Term::SetProj(ref t, ref attr, ref val) => {
+                write!(f, "{}.{} <- {}", t, attr, val)
+            }
         }
     }
 }

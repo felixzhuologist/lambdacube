@@ -38,6 +38,7 @@ AppTerm: Box<Term> = {
 
 PathTerm: Box<Term> = {
     <PathTerm> "." <Ident> => Box::new(Term::Proj(<>)),
+    <PathTerm> "." <Ident> "<-" <ATerm> => Box::new(Term::SetProj(<>)),
     <ATerm>,
 }
 

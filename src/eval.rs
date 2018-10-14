@@ -119,6 +119,35 @@ pub fn eval_step(
         Proj(box term, key) => {
             Ok(Proj(Box::new(eval_step(term, context)?), key.clone()))
         }
+        SetProj(box term, key, box val) if val.is_val() => {
+            match term {
+                Var(s) => {
+                    for (key, val) in context.inner.iter_mut().rev() {
+                        if key == s {
+                            match val {
+                                Term::Record(fields) => {
+                                    fields[i] = val;
+                                }
+                            }
+                        }
+                    }
+                    Term::Unit
+                }
+                t when t.is_val() => Ok(Term::Unit),
+                t => {
+                    Ok(SetProj(
+                        Box::new(eval_step(&t, context)?),
+                        key.clone(),
+                        val.clone()))
+                }
+            }
+        }
+        SetProj(box term, key, box val) => {
+            Ok(SetProj(
+                Box::new(term.clone()),
+                key.clone(),
+                Box::new(eval_step(&val, context)?)))
+        }
         _ => Ok(term.clone()),
     }
 }
@@ -183,8 +212,10 @@ mod tests {
     fn eval_code(code: &str) -> String {
         let ast = eval_ast(
             &::grammar::TermParser::new().parse(code).unwrap(),
-            &mut Context::empty());
-        ast.map(|term| term.to_string()).unwrap_or_else(|err| err.to_string())
+            &mut Context::empty(),
+        );
+        ast.map(|term| term.to_string())
+            .unwrap_or_else(|err| err.to_string())
     }
 
     #[test]
