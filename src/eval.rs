@@ -237,9 +237,12 @@ mod tests {
             eval_code(
                 "let double = fun f . fun a . f (f a) in
                  let addone = fun x . x + 1 in
-                 double addone 0"
+                 let negate = fun b . not b in
+                 let intresult = double addone 0 in
+                 let boolresult = double negate true in
+                 {b=boolresult, i=intresult}"
             ),
-            "2"
+            "{b=true, i=2}"
         );
         assert_eq!(eval_code("(fun b . not b) true"), "false");
     }
