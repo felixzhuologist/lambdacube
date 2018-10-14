@@ -38,10 +38,7 @@ pub fn eval_step(
         App(box func, arg) => {
             Ok(App(Box::new(eval_step(func, context)?), arg.clone()))
         }
-        Var(s) => match context.lookup(s) {
-            Some(val) => Ok(val),
-            None => Err(EvalError::NameError(s.to_string())),
-        },
+        Var(s) => context.lookup(s).ok_or(EvalError::NameError(s.to_string())),
         Arith(box Int(a), op, box Int(b)) => match op {
             ArithOp::Mul => Ok(Int(a * b)),
             ArithOp::Div => Ok(Int(a / b)),
@@ -237,9 +234,12 @@ mod tests {
             eval_code(
                 "let double = fun f . fun a . f (f a) in
                  let addone = fun x . x + 1 in
-                 double addone 0"
+                 let negate = fun b . not b in
+                 let intresult = double addone 0 in
+                 let boolresult = double negate true in
+                 {b=boolresult, i=intresult}"
             ),
-            "2"
+            "{b=true, i=2}"
         );
         assert_eq!(eval_code("(fun b . not b) true"), "false");
     }
