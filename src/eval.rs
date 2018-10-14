@@ -32,11 +32,18 @@ pub fn eval_step(
             context.push(argname.clone(), arg.clone());
             Ok(applysubst(body.clone(), context))
         }
+        TyApp(box TyAbs(_argname, box body), box _arg) => {
+            // TODO: does eval care about the type substitution?
+            Ok(body.clone())
+        }
         App(func, box arg) if func.is_val() => {
             Ok(App(func.clone(), Box::new(eval_step(arg, context)?)))
         }
         App(box func, arg) => {
             Ok(App(Box::new(eval_step(func, context)?), arg.clone()))
+        }
+        TyApp(box func, arg) => {
+            Ok(TyApp(Box::new(eval_step(func, context)?), arg.clone()))
         }
         Var(s) => context.lookup(s).ok_or(EvalError::NameError(s.to_string())),
         Arith(box Int(a), op, box Int(b)) => match op {
@@ -137,10 +144,15 @@ fn applysubst(term: Term, ctx: &mut Context) -> Term {
             ctx.pop();
             InfAbs(param, Box::new(body))
         }
+        TyAbs(param, box body) => {
+            let body = applysubst(body, ctx);
+            TyAbs(param, Box::new(body))
+        }
         App(box func, box val) => App(
             Box::new(applysubst(func, ctx)),
             Box::new(applysubst(val, ctx)),
         ),
+        TyApp(box func, val) => TyApp(Box::new(applysubst(func, ctx)), val),
         Arith(box l, op, box r) => Arith(
             Box::new(applysubst(l, ctx)),
             op,
@@ -242,6 +254,9 @@ mod tests {
             "{b=true, i=2}"
         );
         assert_eq!(eval_code("(fun b . not b) true"), "false");
+        assert_eq!(eval_code("fun[X] x: X . x"), "<fun>");
+        assert_eq!(eval_code("let f = fun[X] x: X . x in f[Int]"), "<fun>");
+        assert_eq!(eval_code("let f = fun[X] x: X . x in f[Int] 0"), "0");
     }
 
     #[test]

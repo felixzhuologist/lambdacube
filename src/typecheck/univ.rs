@@ -1,3 +1,5 @@
+//! Universal Types
+
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
 use syntax::{Term, Type};
@@ -13,10 +15,9 @@ pub fn typecheck(
             Type::Bool => Ok(Type::Bool),
             _ => Err(TypeError::NegateNonBool),
         },
-        Term::Var(s) => match context.lookup(s) {
-            Some(type_) => Ok(type_),
-            None => Err(TypeError::NameError(s.to_string())),
-        },
+        Term::Var(s) => {
+            context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
+        }
         Term::Abs(param, box type_, box body) => {
             let ty = type_
                 .resolve(context)
@@ -24,6 +25,15 @@ pub fn typecheck(
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
+                Box::new(typecheck(body, context)?),
+            ));
+            context.pop();
+            result
+        }
+        Term::TyAbs(param, box body) => {
+            context.push(param.clone(), Type::Var(param.clone()));
+            let result = Ok(Type::All(
+                param.clone(),
                 Box::new(typecheck(body, context)?),
             ));
             context.pop();
@@ -37,6 +47,13 @@ pub fn typecheck(
                 }
             }
             _ => Err(TypeError::FuncApp),
+        },
+        Term::TyApp(box func, box ty) => match typecheck(func, context)? {
+            Type::All(s, box body) => {
+                context.push(s.clone(), ty.clone());
+                Ok(applysubst(body.clone(), context))
+            }
+            _ => Err(TypeError::TyFuncApp),
         },
         Term::Arith(box left, op, box right) => {
             match (typecheck(left, context)?, typecheck(right, context)?) {
@@ -82,35 +99,72 @@ pub fn typecheck(
             },
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _) | Term::TyApp(_, _) | Term::InfAbs(_, _) => {
-            Err(TypeError::Unsupported)
+        Term::InfAbs(_, _) => Err(TypeError::Unsupported),
+    }
+}
+
+fn applysubst(ty: Type, ctx: &mut Context) -> Type {
+    match ty {
+        t @ Type::Bool | t @ Type::Int => t,
+        Type::Arr(box from, box to) => Type::Arr(
+            Box::new(applysubst(from, ctx)),
+            Box::new(applysubst(to, ctx)),
+        ),
+        Type::Record(fields) => Type::Record(AssocList::from_vec(
+            fields
+                .inner
+                .into_iter()
+                .map(|(field, box ty)| (field, Box::new(applysubst(ty, ctx))))
+                .collect(),
+        )),
+        Type::Var(s) => ctx.lookup(&s).unwrap_or(Type::Var(s.clone())),
+        Type::All(param, box body) => {
+            ctx.push(param.clone(), Type::Var(param.clone()));
+            let body = applysubst(body, ctx);
+            ctx.pop();
+            Type::All(param, Box::new(body))
         }
     }
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
-    use assoclist::TypeContext;
+    use assoclist::TypeContext as Context;
     use grammar;
 
     pub fn typecheck_code(code: &str) -> String {
         typecheck(
             &grammar::TermParser::new().parse(code).unwrap(),
-            &mut TypeContext::empty(),
+            &mut Context::empty(),
         ).map(|ty| ty.to_string())
         .unwrap_or_else(|err| err.to_string())
     }
 
     #[test]
     fn e2e_type() {
-        assert_eq!(typecheck_code("if true then 0 else 2"), "Int");
+        assert_eq!(typecheck_code("fun[X] x: X . x"), "∀X. (X -> X)");
         assert_eq!(
-            typecheck_code("let x = 0 in if x + 2 then 0 else 2"),
-            "If/else condition must be a Bool"
+            typecheck_code("let f = fun[X] x: X . x in f[Int]"),
+            "(Int -> Int)"
         );
-        assert_eq!(typecheck_code("fun x: Int . x >= 0"), "(Int -> Bool)");
-        assert_eq!(typecheck_code("3 4"), "Tried to apply non function type");
-        assert_eq!(typecheck_code("(fun x: Int . x*2 + 1) 0"), "Int");
+        assert_eq!(
+            typecheck_code("let f = fun[X] x: X . x in f[Int] 0"),
+            "Int"
+        );
+    }
+
+    #[test]
+    fn substitution() {
+        let mut ctx = Context::from_vec(vec![(String::from("X"), Type::Int)]);
+        assert_eq!(
+            applysubst(Type::Var(String::from("X")), &mut ctx),
+            Type::Int
+        );
+        let func = Type::All(
+            String::from("X"),
+            Box::new(Type::Var(String::from("X"))),
+        );
+        assert_eq!(applysubst(func.clone(), &mut ctx), func);
     }
 }

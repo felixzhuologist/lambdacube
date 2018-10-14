@@ -20,6 +20,7 @@ pub fn set_typechecker(serialized: u8) {
             0b0000_0000 => ::typecheck::simple::typecheck,
             0b0000_0001 => ::typecheck::sub::typecheck,
             0b0000_0010 => ::typecheck::hm::typecheck,
+            0b0000_0100 => ::typecheck::univ::typecheck,
             _ => unimplemented!(),
         })
     }

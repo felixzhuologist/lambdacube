@@ -112,4 +112,11 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn check_univ() {
+        assert!(grammar::TermParser::new().parse("fun[X] x: X . x").is_ok());
+        assert!(grammar::TermParser::new().parse("polyfunc[X]").is_ok());
+        assert!(grammar::TermParser::new().parse("polyfunc[X] 0").is_ok());
+    }
 }

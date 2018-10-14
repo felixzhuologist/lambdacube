@@ -26,6 +26,7 @@ pub enum TypeError {
     NameError(String),
     ArgMismatch(Type, Type),
     FuncApp,
+    TyFuncApp,
     Arith(ArithOp, Type, Type),
     Logic(BoolOp, Type, Type),
     IfElseCond,
@@ -33,6 +34,12 @@ pub enum TypeError {
     InvalidKey(String),
     ProjectNonRecord,
     UnifyError,
+    // Some terms/types are only supported in certain cases (for example,
+    // the InfAbs is only valid for HM since that's currently the only system
+    // that can do type inference). It should probably be a syntax error to
+    // try and use something that is unsupported, but that would require having
+    // multiple parsers which is expensive because the generated parsers are
+    // large. So instead, the typechecker returns an Unsupported error for now
     Unsupported,
 }
 
@@ -51,6 +58,7 @@ impl fmt::Display for TypeError {
                 expected, actual
             ),
             TypeError::FuncApp => write!(f, "Tried to apply non function type"),
+            TypeError::TyFuncApp => write!(f, "Tried to apply non type function type"),
             TypeError::Arith(ref op, ref left, ref right) => {
                 write!(f, "Cannot apply {} to {} and {}", op, left, right)
             }
@@ -74,7 +82,7 @@ impl fmt::Display for TypeError {
             TypeError::UnifyError => write!(f, "Type error"),
             // TODO: this shoudl probably be a syntax error
             TypeError::Unsupported => {
-                write!(f, "Type inference is unsupported for the current mode")
+                write!(f, "Attempted to use an unsupported feature for the current type system")
             }
         }
     }

@@ -21,8 +21,12 @@ pub enum Term {
     Var(String),
     Int(i32),
     Abs(String, Box<Type>, Box<Term>),
+    /// type abstraction (function from type to term)
+    TyAbs(String, Box<Term>),
+    /// regular abstraction with inferred type
     InfAbs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
+    TyApp(Box<Term>, Box<Type>),
     Arith(Box<Term>, ArithOp, Box<Term>),
     Logic(Box<Term>, BoolOp, Box<Term>),
     If(Box<Term>, Box<Term>, Box<Term>),
@@ -42,15 +46,23 @@ impl Term {
 
     pub fn is_val(&self) -> bool {
         match self {
-            Term::Int(_) => true,
-            Term::Bool(_) => true,
+            Term::Int(_)
+            | Term::Bool(_)
+            | Term::Abs(_, _, _)
+            | Term::TyAbs(_, _)
+            | Term::InfAbs(_, _) => true,
             Term::Not(box t) => t.is_val(),
-            Term::Abs(_, _, _) => true,
-            Term::InfAbs(_, _) => true,
             Term::Record(fields) => {
                 fields.inner.iter().all(|(_, val)| val.is_val())
             }
-            _ => false,
+            Term::App(_, _)
+            | Term::TyApp(_, _)
+            | Term::Var(_)
+            | Term::Arith(_, _, _)
+            | Term::Logic(_, _, _)
+            | Term::If(_, _, _)
+            | Term::Let(_, _, _)
+            | Term::Proj(_, _) => false,
         }
     }
 }
@@ -62,8 +74,11 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(_, _, _) | Term::InfAbs(_, _) => write!(f, "<fun>"),
+            Term::Abs(_, _, _) | Term::InfAbs(_, _) | Term::TyAbs(_, _) => {
+                write!(f, "<fun>")
+            }
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
+            Term::TyApp(ref func, ref arg) => write!(f, "{} [{}]", func, arg),
             Term::Arith(ref l, ref op, ref r) => {
                 write!(f, "{} {} {}", l, op, r)
             }
@@ -97,6 +112,7 @@ pub enum Type {
     Arr(Box<Type>, Box<Type>),
     Record(AssocList<String, Box<Type>>),
     Var(String),
+    All(String, Box<Type>),
 }
 
 impl Type {
@@ -116,6 +132,9 @@ impl Type {
                 Ok(Type::Record(AssocList::from_vec(new_fields)))
             }
             Type::Var(ref s) => ctx.lookup(s).ok_or(s.clone()),
+            Type::All(ref s, ref ty) => {
+                Ok(Type::All(s.clone(), Box::new(ty.resolve(ctx)?)))
+            }
         }
     }
 }
@@ -138,6 +157,7 @@ impl fmt::Display for Type {
                     .join(", ")
             ),
             Type::Var(ref s) => write!(f, "{}", s),
+            Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
         }
     }
 }

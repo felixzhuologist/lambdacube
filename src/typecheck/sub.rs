@@ -82,7 +82,9 @@ pub fn typecheck(
             },
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::InfAbs(_, _) => Err(TypeError::Unsupported),
+        Term::TyAbs(_, _) | Term::TyApp(_, _) | Term::InfAbs(_, _) => {
+            Err(TypeError::Unsupported)
+        }
     }
 }
 

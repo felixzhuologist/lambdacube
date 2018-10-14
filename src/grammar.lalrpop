@@ -26,6 +26,8 @@ pub Term: Box<Term> = {
     "let" <Ident> "=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
     FuncDef <Ident> ":" <Type> "." <Term> => Box::new(Term::Abs(<>)),
     FuncDef <Ident> "." <Term> => Box::new(Term::InfAbs(<>)),
+    FuncDef "[" <univ:TyIdent> "]" <s:Ident> ":" <ty:Type> "." <body:Term> =>
+        Box::new(Term::TyAbs(univ, Box::new(Term::Abs(s, ty, body)))),
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
@@ -33,6 +35,7 @@ pub Term: Box<Term> = {
 AppTerm: Box<Term> = {
     <PathTerm>,
     AppTerm PathTerm => Box::new(Term::App(<>)),
+    <AppTerm> "[" <Type> "]" => Box::new(Term::TyApp(<>)),
     AppTerm FactorOp PathTerm => Box::new(Term::Arith(<>)),
 }
 

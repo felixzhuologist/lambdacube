@@ -98,6 +98,7 @@ pub fn get_constraints(
             Ok((tyres, constr))
         }
         Term::Record(_) | Term::Proj(_, _) => unimplemented!(),
+        Term::TyAbs(_, _) | Term::TyApp(_, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -183,6 +184,7 @@ fn tysubst(s: &str, tyout: &Type, tyin: Type) -> Type {
         } else {
             Type::Var(name)
         },
+        Type::All(_, _) => unimplemented!(),
     }
 }
 
@@ -193,6 +195,7 @@ pub fn occursin(s: &str, ty: &Type) -> bool {
         Type::Arr(ref l, ref r) => occursin(&s, l) || occursin(&s, r),
         Type::Record(_fields) => unimplemented!(),
         Type::Var(name) => name == s,
+        Type::All(_, _) => unimplemented!(),
     }
 }
 
