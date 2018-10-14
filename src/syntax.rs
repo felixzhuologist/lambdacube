@@ -16,6 +16,7 @@ pub enum Binder {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term {
+    Unit,
     Bool(bool),
     Not(Box<Term>),
     Var(String),
@@ -42,15 +43,22 @@ impl Term {
 
     pub fn is_val(&self) -> bool {
         match self {
-            Term::Int(_) => true,
-            Term::Bool(_) => true,
+            Term::Unit
+            | Term::Int(_)
+            | Term::Bool(_)
+            | Term::Abs(_, _, _)
+            | Term::InfAbs(_, _) => true,
             Term::Not(box t) => t.is_val(),
-            Term::Abs(_, _, _) => true,
-            Term::InfAbs(_, _) => true,
             Term::Record(fields) => {
                 fields.inner.iter().all(|(_, val)| val.is_val())
             }
-            _ => false,
+            Term::App(_, _)
+            | Term::Var(_)
+            | Term::Arith(_, _, _)
+            | Term::Logic(_, _, _)
+            | Term::If(_, _, _)
+            | Term::Let(_, _, _)
+            | Term::Proj(_, _) => false,
         }
     }
 }
@@ -58,6 +66,7 @@ impl Term {
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Term::Unit => write!(f, "()"),
             Term::Bool(b) => write!(f, "{}", b),
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
@@ -94,6 +103,7 @@ impl fmt::Display for Term {
 pub enum Type {
     Bool,
     Int,
+    Unit,
     Arr(Box<Type>, Box<Type>),
     Record(AssocList<String, Box<Type>>),
     Var(String),
@@ -102,6 +112,7 @@ pub enum Type {
 impl Type {
     pub fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
         match *self {
+            Type::Unit => Ok(Type::Unit),
             Type::Bool => Ok(Type::Bool),
             Type::Int => Ok(Type::Int),
             Type::Arr(ref from, ref to) => Ok(Type::Arr(
@@ -123,6 +134,7 @@ impl Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Type::Unit => write!(f, "Unit"),
             Type::Bool => write!(f, "Bool"),
             Type::Int => write!(f, "Int"),
             // TODO: parenthesize

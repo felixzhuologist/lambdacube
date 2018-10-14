@@ -9,6 +9,7 @@ pub fn typecheck(
     match term {
         Term::Bool(_) => Ok(Type::Bool),
         Term::Int(_) => Ok(Type::Int),
+        Term::Unit => Ok(Type::Unit),
         Term::Not(box t) => match typecheck(t, context)? {
             Type::Bool => Ok(Type::Bool),
             _ => Err(TypeError::NegateNonBool),

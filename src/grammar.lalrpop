@@ -42,12 +42,21 @@ PathTerm: Box<Term> = {
 }
 
 ATerm: Box<Term> = {
+    "()" => Box::new(Term::Unit),
     Ident => Box::new(Term::Var(<>)),
     Num => Box::new(Term::Int(<>)),
     Bool => Box::new(Term::Bool(<>)),
-    "(" <Term> ")",
+    "(" <TermSeq> ")",
     "{" <CommaSep<RecordField>> "}" =>
         Box::new(Term::Record(AssocList::from_vec(<>))),
+}
+
+TermSeq: Box<Term> = {
+    <Term>,
+    <t1:Term> ";" <t2:TermSeq> => {
+        let func = Term::Abs(String::from("_"), Box::new(Type::Unit), t2);
+        Box::new(Term::App(Box::new(func), t1))
+    }
 }
 
 RecordField: (String, Box<Term>) = {

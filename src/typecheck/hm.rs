@@ -23,6 +23,7 @@ pub fn get_constraints(
     match term {
         Term::Bool(_) => Ok((Type::Bool, Vec::new())),
         Term::Int(_) => Ok((Type::Int, Vec::new())),
+        Term::Unit => Ok((Type::Unit, Vec::new())),
         Term::Not(box t) => {
             Ok((Type::Bool, vec![(typecheck(t, context)?, Type::Bool)]))
         }
@@ -171,6 +172,7 @@ fn pick_fresh_outtype(constr: &Constraints) -> String {
 
 fn tysubst(s: &str, tyout: &Type, tyin: Type) -> Type {
     match tyin {
+        Type::Unit => Type::Unit,
         Type::Int => Type::Int,
         Type::Bool => Type::Bool,
         Type::Arr(box l, box r) => Type::Arr(
@@ -188,6 +190,7 @@ fn tysubst(s: &str, tyout: &Type, tyin: Type) -> Type {
 
 pub fn occursin(s: &str, ty: &Type) -> bool {
     match ty {
+        Type::Unit => false,
         Type::Int => false,
         Type::Bool => false,
         Type::Arr(ref l, ref r) => occursin(&s, l) || occursin(&s, r),

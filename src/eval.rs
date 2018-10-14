@@ -125,7 +125,7 @@ pub fn eval_step(
 
 fn applysubst(term: Term, ctx: &mut Context) -> Term {
     match term {
-        t @ Bool(_) | t @ Int(_) => t,
+        t @ Bool(_) | t @ Int(_) | t @ Unit => t,
         Not(box t) => Not(Box::new(applysubst(t, ctx))),
         Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
         Abs(param, ty, box body) => {
@@ -181,13 +181,10 @@ mod tests {
     use super::*;
 
     fn eval_code(code: &str) -> String {
-        match eval_ast(
+        let ast = eval_ast(
             &::grammar::TermParser::new().parse(code).unwrap(),
-            &mut Context::empty(),
-        ) {
-            Ok(ast) => ast.to_string(),
-            Err(err) => err.to_string(),
-        }
+            &mut Context::empty());
+        ast.map(|term| term.to_string()).unwrap_or_else(|err| err.to_string())
     }
 
     #[test]
@@ -245,6 +242,7 @@ mod tests {
             "{b=true, i=2}"
         );
         assert_eq!(eval_code("(fun b . not b) true"), "false");
+        assert_eq!(eval_code("((); 3)"), "3");
     }
 
     #[test]
