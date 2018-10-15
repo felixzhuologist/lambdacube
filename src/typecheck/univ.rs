@@ -99,7 +99,9 @@ pub fn typecheck(
             },
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::InfAbs(_, _) => Err(TypeError::Unsupported),
+        Term::InfAbs(_, _) | Term::Pack(_, _, _) | Term::Unpack(_, _, _, _) => {
+            Err(TypeError::Unsupported)
+        }
     }
 }
 

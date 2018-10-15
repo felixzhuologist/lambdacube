@@ -98,7 +98,10 @@ pub fn get_constraints(
             Ok((tyres, constr))
         }
         Term::Record(_) | Term::Proj(_, _) => unimplemented!(),
-        Term::TyAbs(_, _) | Term::TyApp(_, _) => Err(TypeError::Unsupported),
+        Term::TyAbs(_, _)
+        | Term::TyApp(_, _)
+        | Term::Pack(_, _, _)
+        | Term::Unpack(_, _, _, _) => Err(TypeError::Unsupported),
     }
 }
 

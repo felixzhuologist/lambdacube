@@ -147,8 +147,7 @@ mod tests {
 
     #[test]
     fn check_exis() {
-        let module =
-            "module sig
+        let module = "module sig
                 type Counter
                 val new : Counter
                 val get : Counter -> Int
@@ -156,6 +155,37 @@ mod tests {
             end";
 
         assert!(grammar::TypeParser::new().parse(module).is_ok());
+
+        let module_binder = "type CounterADT = module sig
+                type Counter
+                val new : Counter
+                val get : Counter -> Int
+                val inc : Counter -> Counter
+            end";
+        assert!(grammar::BinderParser::new().parse(module_binder).is_ok());
+
+        let pack = "module ops
+            type Int
+            val new = 1
+            val get = fun (x: Int) -> x
+            val inc = fun (x: Int) -> x + 1
+        end as CounterADT";
+        assert!(grammar::TermParser::new().parse(pack).is_ok());
+
+        let pack_binder = "let counterADT = module ops
+            type Int
+            val new = 1
+            val get = fun (x: Int) -> x
+            val inc = fun (x: Int) -> x + 1
+        end as CounterADT";
+        assert!(grammar::BinderParser::new().parse(pack_binder).is_ok());
+
+        assert!(grammar::TermParser::new().parse("counterADT").is_ok());
+        assert!(grammar::IdentParser::new().parse("counter").is_ok());
+        assert!(grammar::TyIdentParser::new().parse("Counter").is_ok());
+        assert!(grammar::TermParser::new().parse("counter.new").is_ok());
+        let unpack = "open counterADT as counter: Counter in counter.new";
+        assert!(grammar::TermParser::new().parse(unpack).is_ok());
     }
 
     #[test]

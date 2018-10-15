@@ -34,6 +34,14 @@ pub enum Term {
     Let(String, Box<Term>, Box<Term>),
     Record(AssocList<String, Box<Term>>),
     Proj(Box<Term>, String),
+    /// introduce an existential: provide the witness type, the implementation,
+    /// and the existential type it should inhabit - the term must have its
+    /// type explicitly annotated when being defined
+    // Analogous to Type::Some, this could take a general Term as the implementation
+    // but right now we assume that it will be a Term::Record anyways
+    Pack(Box<Type>, AssocList<String, Box<Term>>, Box<Type>),
+    /// unpack an existential and give it a name for the scope of the third term
+    Unpack(String, String, Box<Term>, Box<Term>),
 }
 
 impl Term {
@@ -53,7 +61,7 @@ impl Term {
             | Term::TyAbs(_, _)
             | Term::InfAbs(_, _) => true,
             Term::Not(box t) => t.is_val(),
-            Term::Record(fields) => {
+            Term::Pack(_, fields, _) | Term::Record(fields) => {
                 fields.inner.iter().all(|(_, val)| val.is_val())
             }
             Term::App(_, _)
@@ -63,7 +71,8 @@ impl Term {
             | Term::Logic(_, _, _)
             | Term::If(_, _, _)
             | Term::Let(_, _, _)
-            | Term::Proj(_, _) => false,
+            | Term::Proj(_, _)
+            | Term::Unpack(_, _, _, _) => false,
         }
     }
 }
@@ -102,6 +111,10 @@ impl fmt::Display for Term {
                     .join(", ")
             ),
             Term::Proj(ref t, ref attr) => write!(f, "{}.{}", t, attr),
+            Term::Pack(_, _, _) => write!(f, "<mod>"), // TODO
+            Term::Unpack(ref tyname, ref tname, ref mod_, ref term) => {
+                write!(f, "open {} as {}: {} in {}", mod_, tname, tyname, term)
+            }
         }
     }
 }

@@ -31,6 +31,8 @@ pub Term: Box<Term> = {
     "not" <Term> => Box::new(Term::Not(<>)),
     "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
     "let" <Ident> "=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
+    "open" <mod_:Term> "as" <v:Ident> ":" <tyv:TyIdent> "in" <term:Term> =>
+        Box::new(Term::Unpack(tyv, v, mod_, term)),
     FuncDef <p:Params> "->" <t:Term> => 
         Box::new(p.into_iter().rev().fold(*t, |func, next_param| match next_param {
             (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
@@ -87,17 +89,19 @@ ATerm: Box<Term> = {
     "(" <Term> ")",
     "{" <CommaSep<RecordField>> "}" =>
         Box::new(Term::Record(AssocList::from_vec(<>))),
+    "module" "ops" "type" <ty:Type> <impls:("val" <RecordField>)+> "end" "as" <asc:Type> =>
+        Box::new(Term::Pack(ty, AssocList::from_vec(impls), asc)),
 }
 
 RecordField: (String, Box<Term>) = {
     <Ident> "=" <Term> => (<>)
 }
 
-TyIdent: String = {
+pub TyIdent: String = {
     r"[A-Z][a-zA-Z0-9_]*" => <>.to_string()
 }
 
-Ident: String = {
+pub Ident: String = {
     r"[a-z_][a-zA-Z0-9_]*" => <>.to_string()
 }
 

@@ -91,12 +91,21 @@ pub fn eval_step(
             t1.clone(),
             t2.clone(),
         )),
-        Let(varname, box val, box term) if val.is_val() => {
+        Unpack(_, varname, box val, box term)
+        | Let(varname, box val, box term)
+            if val.is_val() =>
+        {
             context.push(varname.clone(), val.clone());
             Ok(term.clone())
         }
         Let(varname, box val, term) => Ok(Let(
             varname.clone(),
+            Box::new(eval_step(val, context)?),
+            term.clone(),
+        )),
+        Unpack(ty, var, box val, term) => Ok(Unpack(
+            ty.clone(),
+            var.clone(),
             Box::new(eval_step(val, context)?),
             term.clone(),
         )),
@@ -122,6 +131,19 @@ pub fn eval_step(
         },
         Proj(box term, key) => {
             Ok(Proj(Box::new(eval_step(term, context)?), key.clone()))
+        }
+        Pack(witness, impls, sigs) => {
+            // TODO: code reuse
+            let mut new_fields = Vec::new();
+            for (key, box val) in impls.inner.iter() {
+                new_fields
+                    .push((key.clone(), Box::new(eval_step(val, context)?)))
+            }
+            Ok(Pack(
+                witness.clone(),
+                AssocList::from_vec(new_fields),
+                sigs.clone(),
+            ))
         }
         _ => Ok(term.clone()),
     }
@@ -182,6 +204,24 @@ fn applysubst(term: Term, ctx: &mut Context) -> Term {
                 .collect(),
         )),
         Proj(box t, field) => Proj(Box::new(applysubst(t, ctx)), field),
+        // TODO: code reuse
+        Pack(witness, impls, ty) => {
+            let impls = AssocList::from_vec(
+                impls
+                    .inner
+                    .into_iter()
+                    .map(|(field, box val)| {
+                        (field, Box::new(applysubst(val, ctx)))
+                    }).collect(),
+            );
+            Pack(witness, impls, ty)
+        }
+        Unpack(ty, var, box mod_, box term) => Unpack(
+            ty,
+            var,
+            Box::new(applysubst(mod_, ctx)),
+            Box::new(applysubst(term, ctx)),
+        ),
     }
 }
 

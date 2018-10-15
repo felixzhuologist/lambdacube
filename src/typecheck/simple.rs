@@ -82,9 +82,11 @@ pub fn typecheck(
             },
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _) | Term::TyApp(_, _) | Term::InfAbs(_, _) => {
-            Err(TypeError::Unsupported)
-        }
+        Term::TyAbs(_, _)
+        | Term::TyApp(_, _)
+        | Term::InfAbs(_, _)
+        | Term::Pack(_, _, _)
+        | Term::Unpack(_, _, _, _) => Err(TypeError::Unsupported),
     }
 }
 
