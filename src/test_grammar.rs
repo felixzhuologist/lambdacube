@@ -8,7 +8,9 @@ mod tests {
     #[test]
     fn check_parse() {
         assert_eq!(
-            grammar::TermParser::new().parse("fun (x: Bool) -> 0").unwrap(),
+            grammar::TermParser::new()
+                .parse("fun (x: Bool) -> 0")
+                .unwrap(),
             Box::new(Abs(
                 "x".to_string(),
                 Box::new(Type::Bool),
@@ -111,11 +113,23 @@ mod tests {
                 )]))
             )
         );
+
+        assert!(grammar::BinderParser::new().parse("let x = 3").is_ok());
+        assert!(grammar::BinderParser::new().parse("let f x = x").is_ok());
+        assert!(
+            grammar::BinderParser::new()
+                .parse("let g (x: Int) y = y + x")
+                .is_ok()
+        );
     }
 
     #[test]
     fn check_univ() {
-        assert!(grammar::TermParser::new().parse("fun[X] (x: X) -> x").is_ok());
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun[X] (x: X) -> x")
+                .is_ok()
+        );
         assert!(grammar::TermParser::new().parse("polyfunc[X]").is_ok());
         assert!(grammar::TermParser::new().parse("polyfunc[X] 0").is_ok());
     }
@@ -124,6 +138,10 @@ mod tests {
     fn multiarg() {
         assert!(grammar::TermParser::new().parse("fun x -> x").is_ok());
         assert!(grammar::TermParser::new().parse("fun x y -> x + y").is_ok());
-        assert!(grammar::TermParser::new().parse("fun x (y: Int) -> x + y").is_ok());
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun x (y: Int) -> x + y")
+                .is_ok()
+        );
     }
 }

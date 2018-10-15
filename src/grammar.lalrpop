@@ -16,6 +16,13 @@ pub Command: Command = {
 
 pub Binder: Binder = {
     "let" <s:Ident> "=" <t:Term> => Binder::VarBind(s, *t),
+    "let" <s:Ident> <p:Params> "=" <t:Term> => {
+        let func = p.into_iter().rev().fold(*t, |func, next_param| match next_param {
+            (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
+            (arg, None) => Term::InfAbs(arg, Box::new(func))
+        });
+        Binder::VarBind(s, func)
+    },
     "type" <s:TyIdent> "=" <t:Type> => Binder::TyBind(s, *t),
 }
 
