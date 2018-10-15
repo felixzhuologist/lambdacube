@@ -36,10 +36,23 @@ pub Term: Box<Term> = {
             (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
             (arg, None) => Term::InfAbs(arg, Box::new(func))
         })),
-    FuncDef "[" <univ:TyIdent> "]" "(" <s:Ident> ":" <ty:Type> ")" "->" <body:Term> =>
-        Box::new(Term::TyAbs(univ, Box::new(Term::Abs(s, ty, body)))),
+    FuncDef "[" <univ:NECommaSep<TyIdent>> "]" <p:TypedParams> "->" <body:Term> => {
+        let func = p
+            .into_iter()
+            .rev()
+            .fold(*body, |func, (arg, ty)| Term::Abs(arg, ty, Box::new(func)));
+
+        Box::new(univ
+            .into_iter()
+            .rev()
+            .fold(func, |func, next_| Term::TyAbs(next_, Box::new(func))))
+    },
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
+}
+
+TypedParams: Vec<(String, Box<Type>)> = {
+    ("(" <Ident> ":" <Type> ")")+
 }
 
 Params: Vec<(String, Option<Box<Type>>)> = {
@@ -54,7 +67,11 @@ Param: (String, Option<Box<Type>>) = {
 AppTerm: Box<Term> = {
     <PathTerm>,
     AppTerm PathTerm => Box::new(Term::App(<>)),
-    <AppTerm> "[" <Type> "]" => Box::new(Term::TyApp(<>)),
+    <univ:AppTerm> "[" <tys:NECommaSep<Type>> "]" => 
+        Box::new(tys
+            .into_iter()
+            .rev()
+            .fold(*univ, |acc, ty| Term::TyApp(Box::new(acc), ty))),
     AppTerm FactorOp PathTerm => Box::new(Term::Arith(<>)),
 }
 
@@ -137,6 +154,14 @@ AType: Box<Type> = {
 
 RecordFieldType: (String, Box<Type>) = {
     <Ident> ":" <Type> => (<>)
+}
+
+NECommaSep<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T> => {
+        let mut v = v;
+        v.push(e);
+        v
+    }
 }
 
 CommaSep<T>: Vec<T> = {
