@@ -119,4 +119,11 @@ mod tests {
         assert!(grammar::TermParser::new().parse("polyfunc[X]").is_ok());
         assert!(grammar::TermParser::new().parse("polyfunc[X] 0").is_ok());
     }
+
+    #[test]
+    fn multiarg() {
+        assert!(grammar::TermParser::new().parse("fun x . x").is_ok());
+        assert!(grammar::TermParser::new().parse("fun x y . x + y").is_ok());
+        assert!(grammar::TermParser::new().parse("fun x y: Int . x + y").is_ok());
+    }
 }
