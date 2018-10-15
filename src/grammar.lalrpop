@@ -24,19 +24,24 @@ pub Term: Box<Term> = {
     "not" <Term> => Box::new(Term::Not(<>)),
     "if" <Term> "then" <Term> "else" <Term> => Box::new(Term::If(<>)),
     "let" <Ident> "=" <Term> "in" <Term> => Box::new(Term::Let(<>)),
-    FuncDef <p:Param> "." <t:Term> => 
-        Box::new(p.into_iter().fold(*t, |func, next_param| match next_param {
+    FuncDef <p:Params> "->" <t:Term> => 
+        Box::new(p.into_iter().rev().fold(*t, |func, next_param| match next_param {
             (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
             (arg, None) => Term::InfAbs(arg, Box::new(func))
         })),
-    FuncDef "[" <univ:TyIdent> "]" <s:Ident> ":" <ty:Type> "." <body:Term> =>
+    FuncDef "[" <univ:TyIdent> "]" "(" <s:Ident> ":" <ty:Type> ")" "->" <body:Term> =>
         Box::new(Term::TyAbs(univ, Box::new(Term::Abs(s, ty, body)))),
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
 
-Param: Vec<(String, Option<Box<Type>>)> = {
-    (<Ident> <(":" <Type>)?>)+
+Params: Vec<(String, Option<Box<Type>>)> = {
+    (<Param>)+
+}
+
+Param: (String, Option<Box<Type>>) = {
+    <Ident> => (<>, None),
+    "(" <s:Ident> ":" <t:Type> ")" => (s, Some(t))
 }
 
 AppTerm: Box<Term> = {

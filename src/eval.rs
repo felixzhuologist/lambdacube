@@ -226,7 +226,7 @@ mod tests {
     fn e2e_eval() {
         assert_eq!(eval_code("if (3 % 2) == 1 then 10 else 2"), "10");
         assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
-        assert_eq!(eval_code("(fun x: Int . x*4 + 3) 3"), "15");
+        assert_eq!(eval_code("(fun (x: Int) -> x*4 + 3) 3"), "15");
         assert_eq!(eval_code("let x = 5 in x"), "5");
         assert_eq!(eval_code("{a=1, b=2}"), "{a=1, b=2}");
         assert_eq!(eval_code("{a=2}.a"), "2");
@@ -236,27 +236,27 @@ mod tests {
         );
         assert_eq!(
             eval_code(
-                "let twice = fun f: (Int -> Int) . f (f 0) in
-                 let addone = fun x: Int . x + 1 in
+                "let twice = fun (f: Int -> Int) -> f (f 0) in
+                 let addone = fun (x: Int) -> x + 1 in
                  twice addone"
             ),
             "2"
         );
         assert_eq!(
             eval_code(
-                "let double = fun f . fun a . f (f a) in
-                 let addone = fun x . x + 1 in
-                 let negate = fun b . not b in
+                "let double = fun f a -> f (f a) in
+                 let addone = fun x -> x + 1 in
+                 let negate = fun b -> not b in
                  let intresult = double addone 0 in
                  let boolresult = double negate true in
                  {b=boolresult, i=intresult}"
             ),
             "{b=true, i=2}"
         );
-        assert_eq!(eval_code("(fun b . not b) true"), "false");
-        assert_eq!(eval_code("fun[X] x: X . x"), "<fun>");
-        assert_eq!(eval_code("let f = fun[X] x: X . x in f[Int]"), "<fun>");
-        assert_eq!(eval_code("let f = fun[X] x: X . x in f[Int] 0"), "0");
+        assert_eq!(eval_code("(fun b -> not b) true"), "false");
+        assert_eq!(eval_code("fun[X] (x: X) -> x"), "<fun>");
+        assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
+        assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
     }
 
     #[test]

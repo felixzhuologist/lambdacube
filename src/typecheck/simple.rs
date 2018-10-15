@@ -109,8 +109,8 @@ pub mod tests {
             typecheck_code("let x = 0 in if x + 2 then 0 else 2"),
             "If/else condition must be a Bool"
         );
-        assert_eq!(typecheck_code("fun x: Int . x >= 0"), "(Int -> Bool)");
+        assert_eq!(typecheck_code("fun (x: Int) -> x >= 0"), "(Int -> Bool)");
         assert_eq!(typecheck_code("3 4"), "Tried to apply non function type");
-        assert_eq!(typecheck_code("(fun x: Int . x*2 + 1) 0"), "Int");
+        assert_eq!(typecheck_code("(fun (x: Int) -> x*2 + 1) 0"), "Int");
     }
 }

@@ -143,13 +143,13 @@ mod tests {
 
     #[test]
     fn e2e_type() {
-        assert_eq!(typecheck_code("fun[X] x: X . x"), "∀X. (X -> X)");
+        assert_eq!(typecheck_code("fun[X] (x: X) -> x"), "∀X. (X -> X)");
         assert_eq!(
-            typecheck_code("let f = fun[X] x: X . x in f[Int]"),
+            typecheck_code("let f = fun[X] (x: X) -> x in f[Int]"),
             "(Int -> Int)"
         );
         assert_eq!(
-            typecheck_code("let f = fun[X] x: X . x in f[Int] 0"),
+            typecheck_code("let f = fun[X] (x: X) -> x in f[Int] 0"),
             "Int"
         );
     }

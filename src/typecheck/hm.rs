@@ -217,15 +217,23 @@ mod tests {
 
     #[test]
     fn check_infer() {
-        assert_eq!(typecheck_code("fun x . x + 1"), "(Int -> Int)");
-        assert_eq!(typecheck_code("fun x: X. x"), "(X -> X)");
-        assert_eq!(typecheck_code("fun x . x"), "(X -> X)");
+        assert_eq!(typecheck_code("fun x -> x + 1"), "(Int -> Int)");
+        assert_eq!(typecheck_code("fun (x: X) -> x"), "(X -> X)");
+        assert_eq!(typecheck_code("fun x -> x"), "(X -> X)");
         assert_eq!(
-            typecheck_code("fun z: Z -> Z . fun y: Y -> Y . z (y true)"),
+            typecheck_code("fun (z: Z -> Z) -> fun (y: Y -> Y) -> z (y true)"),
             "((Bool -> Bool) -> ((Bool -> Bool) -> Bool))"
         );
         assert_eq!(
-            typecheck_code("fun z . fun y . z (y true)"),
+            typecheck_code("fun (z: Z -> Z) (y: Y -> Y) -> z (y true)"),
+            "((Bool -> Bool) -> ((Bool -> Bool) -> Bool))"
+        );
+        assert_eq!(
+            typecheck_code("fun z -> fun y -> z (y true)"),
+            "((X?0 -> X?1) -> ((Bool -> X?0) -> X?1))"
+        );
+        assert_eq!(
+            typecheck_code("fun z y -> z (y true)"),
             "((X?0 -> X?1) -> ((Bool -> X?0) -> X?1))"
         );
     }

@@ -112,7 +112,7 @@ mod tests {
         assert_eq!(
             prog.eval(
                 "type IntFunc = Int -> Int;
-                 fun f: IntFunc . f 0;"
+                 fun (f: IntFunc) -> f 0;"
             ),
             "<fun>: ((Int -> Int) -> Int)\n"
         );
