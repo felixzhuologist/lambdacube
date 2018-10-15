@@ -132,8 +132,16 @@ mod tests {
         );
         assert!(grammar::TermParser::new().parse("polyfunc[X]").is_ok());
         assert!(grammar::TermParser::new().parse("polyfunc[X] 0").is_ok());
-        assert!(grammar::TermParser::new().parse("polyfunc[T, U, V] 0").is_ok());
-        assert!(grammar::TermParser::new().parse("fun[X, Y] (x: X) (y: Y) -> x").is_ok());
+        assert!(
+            grammar::TermParser::new()
+                .parse("polyfunc[T, U, V] 0")
+                .is_ok()
+        );
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun[X, Y] (x: X) (y: Y) -> x")
+                .is_ok()
+        );
         assert!(grammar::TermParser::new().parse("myfunc[X, Y] x y").is_ok());
     }
 

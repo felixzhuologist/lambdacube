@@ -1,7 +1,7 @@
 //! Implementation of let polymorphism with type inference (Hindley-Milner)
 use assoclist::TypeContext as Context;
 use errors::TypeError;
-use syntax::{Term, Type};
+use syntax::{Resolvable, Term, Type};
 
 pub type Constraints = Vec<(Type, Type)>;
 

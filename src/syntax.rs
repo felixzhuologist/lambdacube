@@ -1,6 +1,7 @@
 use assoclist::{AssocList, TypeContext};
 
 use std::fmt;
+use std::marker;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
@@ -115,8 +116,14 @@ pub enum Type {
     All(String, Box<Type>),
 }
 
-impl Type {
-    pub fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
+pub trait Resolvable {
+    fn resolve(&self, ctx: &TypeContext) -> Result<Self, String>
+    where
+        Self: marker::Sized;
+}
+
+impl Resolvable for Type {
+    fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
         match *self {
             Type::Bool => Ok(Type::Bool),
             Type::Int => Ok(Type::Int),
@@ -124,13 +131,7 @@ impl Type {
                 Box::new(from.resolve(ctx)?),
                 Box::new(to.resolve(ctx)?),
             )),
-            Type::Record(ref fields) => {
-                let mut new_fields = Vec::new();
-                for (key, box val) in fields.inner.iter() {
-                    new_fields.push((key.clone(), Box::new(val.resolve(ctx)?)))
-                }
-                Ok(Type::Record(AssocList::from_vec(new_fields)))
-            }
+            Type::Record(ref fields) => Ok(Type::Record(fields.resolve(ctx)?)),
             Type::Var(ref s) => ctx.lookup(s).ok_or(s.clone()),
             Type::All(ref s, ref ty) => {
                 Ok(Type::All(s.clone(), Box::new(ty.resolve(ctx)?)))
@@ -147,15 +148,7 @@ impl fmt::Display for Type {
             // TODO: parenthesize
             Type::Arr(ref from, ref to) => write!(f, "({} -> {})", from, to),
             // TODO: refactor repeated code?
-            Type::Record(ref rec) => write!(
-                f,
-                "{{{}}}",
-                rec.inner
-                    .iter()
-                    .map(|(k, v)| format!("{}: {}", k, v))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ),
+            Type::Record(ref rec) => write!(f, "{{{}}}", rec),
             Type::Var(ref s) => write!(f, "{}", s),
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
         }

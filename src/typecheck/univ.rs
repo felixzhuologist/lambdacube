@@ -2,7 +2,7 @@
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::{Term, Type};
+use syntax::{Resolvable, Term, Type};
 
 pub fn typecheck(
     term: &Term,
@@ -146,7 +146,8 @@ mod tests {
         assert_eq!(typecheck_code("fun[X] (x: X) -> x"), "∀X. (X -> X)");
         assert_eq!(
             typecheck_code("fun[X, Y] (f: X -> Y) (x: X) -> f x"),
-            "∀X. ∀Y. ((X -> Y) -> (X -> Y))");
+            "∀X. ∀Y. ((X -> Y) -> (X -> Y))"
+        );
         assert_eq!(
             typecheck_code("let f = fun[X] (x: X) -> x in f[Int]"),
             "(Int -> Int)"

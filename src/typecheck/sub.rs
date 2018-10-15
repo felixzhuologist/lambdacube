@@ -1,6 +1,6 @@
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::{Term, Type};
+use syntax::{Resolvable, Term, Type};
 
 pub fn typecheck(
     term: &Term,
