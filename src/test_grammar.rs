@@ -146,6 +146,19 @@ mod tests {
     }
 
     #[test]
+    fn check_exis() {
+        let module =
+            "module sig
+                type Counter
+                val new : Counter
+                val get : Counter -> Int
+                val inc : Counter -> Counter
+            end";
+
+        assert!(grammar::TypeParser::new().parse(module).is_ok());
+    }
+
+    #[test]
     fn multiarg() {
         assert!(grammar::TermParser::new().parse("fun x -> x").is_ok());
         assert!(grammar::TermParser::new().parse("fun x y -> x + y").is_ok());

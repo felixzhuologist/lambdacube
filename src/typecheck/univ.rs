@@ -124,6 +124,17 @@ fn applysubst(ty: Type, ctx: &mut Context) -> Type {
             ctx.pop();
             Type::All(param, Box::new(body))
         }
+        // TODO: refactor shared code
+        Type::Some(param, sigs) => Type::Some(
+            param.clone(),
+            AssocList::from_vec(
+                sigs.inner
+                    .into_iter()
+                    .map(|(field, box ty)| {
+                        (field, Box::new(applysubst(ty, ctx)))
+                    }).collect(),
+            ),
+        ),
     }
 }
 

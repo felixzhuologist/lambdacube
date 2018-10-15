@@ -114,6 +114,10 @@ pub enum Type {
     Record(AssocList<String, Box<Type>>),
     Var(String),
     All(String, Box<Type>),
+    // The second parameter is a general Type in the TAPL implementation but
+    // currently it's only possible to instantiate a Type::Some with a Record type
+    // anyways so use an AssocList directly
+    Some(String, AssocList<String, Box<Type>>),
 }
 
 pub trait Resolvable {
@@ -136,6 +140,10 @@ impl Resolvable for Type {
             Type::All(ref s, ref ty) => {
                 Ok(Type::All(s.clone(), Box::new(ty.resolve(ctx)?)))
             }
+            // TODO: do we need to shadow s?
+            Type::Some(ref s, ref sigs) => {
+                Ok(Type::Some(s.clone(), sigs.resolve(ctx)?))
+            }
         }
     }
 }
@@ -151,6 +159,7 @@ impl fmt::Display for Type {
             Type::Record(ref rec) => write!(f, "{{{}}}", rec),
             Type::Var(ref s) => write!(f, "{}", s),
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
+            Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
         }
     }
 }
