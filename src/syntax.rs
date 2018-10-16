@@ -13,6 +13,7 @@ pub enum Command {
 pub enum Binder {
     VarBind(String, Term),
     TyBind(String, Type),
+    ModuleBind(String, String, Term),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

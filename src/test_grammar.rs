@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use assoclist::AssocList;
     use grammar;
     use syntax::Term::*;
@@ -121,6 +121,12 @@ mod tests {
                 .parse("let g (x: Int) y = y + x")
                 .is_ok()
         );
+
+        assert!(
+            grammar::BinderParser::new()
+                .parse("open mymod as bla: Bla")
+                .is_ok()
+        )
     }
 
     #[test]
@@ -146,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn check_exis() {
+    pub fn check_exis() {
         let module = "module sig
                 type Counter
                 val new : Counter

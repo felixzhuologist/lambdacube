@@ -23,6 +23,8 @@ pub Binder: Binder = {
         });
         Binder::VarBind(s, func)
     },
+    "open" <mod_:Term> "as" <v:Ident> ":" <tyv:TyIdent> =>
+        Binder::ModuleBind(v, tyv, *mod_),
     "type" <s:TyIdent> "=" <t:Type> => Binder::TyBind(s, *t),
 }
 

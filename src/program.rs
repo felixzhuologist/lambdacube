@@ -73,11 +73,12 @@ impl Program {
         }
     }
 
+    /// Add binder to the global context or return an error message
     fn eval_binder(&mut self, binder: Binder) -> Result<(), String> {
         match binder {
             Binder::VarBind(ref s, ref t) => {
                 self.eval_term(t).map(|(val, ty)| {
-                    self.term_ctx.push(s.clone(), val.clone());
+                    self.term_ctx.push(s.clone(), val);
                     self.ty_ctx.push(s.clone(), ty);
                     ()
                 })
@@ -85,6 +86,17 @@ impl Program {
             Binder::TyBind(s, ty) => {
                 self.ty_ctx.push(s.clone(), ty);
                 Ok(())
+            }
+            Binder::ModuleBind(ref var, ref tyvar, ref module) => {
+                self.eval_term(module).map(|(val, ty)| {
+                    if let Term::Pack(witness, impls, _) = val {
+                        self.term_ctx.push(var.clone(), Term::Record(impls));
+                        self.ty_ctx.push(var.clone(), ty);
+                        // TODO: should this be added to scope?
+                        self.ty_ctx.push(tyvar.clone(), *witness);
+                        ()
+                    }
+                })
             }
         }
     }
