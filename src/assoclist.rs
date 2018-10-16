@@ -70,24 +70,16 @@ impl fmt::Display for AssocList<String, Box<Type>> {
     }
 }
 
-impl Substitutable<Term> for AssocList<String, Box<Term>> {
-    fn applysubst(self, ctx: &mut TermContext) -> AssocList<String, Box<Term>> {
+impl<T: Clone + Substitutable<T>> Substitutable<T>
+    for AssocList<String, Box<T>>
+{
+    fn applysubst(self, varname: &str, var: &T) -> AssocList<String, Box<T>> {
         AssocList::from_vec(
             self.inner
                 .into_iter()
-                .map(|(field, box val)| (field, Box::new(val.applysubst(ctx))))
-                .collect(),
-        )
-    }
-}
-
-impl Substitutable<Type> for AssocList<String, Box<Type>> {
-    fn applysubst(self, ctx: &mut TypeContext) -> AssocList<String, Box<Type>> {
-        AssocList::from_vec(
-            self.inner
-                .into_iter()
-                .map(|(field, box ty)| (field, Box::new(ty.applysubst(ctx))))
-                .collect(),
+                .map(|(field, box val)| {
+                    (field, Box::new(val.applysubst(varname, var)))
+                }).collect(),
         )
     }
 }

@@ -1,4 +1,4 @@
-use assoclist::{AssocList, TermContext, TypeContext};
+use assoclist::{AssocList, TypeContext};
 
 use std::fmt;
 use std::marker;
@@ -134,6 +134,8 @@ pub enum Type {
 }
 
 pub trait Resolvable {
+    /// Tries to resolve all term/type variables inside of itself, erroring if any
+    /// are undefined
     fn resolve(&self, ctx: &TypeContext) -> Result<Self, String>
     where
         Self: marker::Sized;
@@ -141,22 +143,19 @@ pub trait Resolvable {
 
 impl Resolvable for Type {
     fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
-        match *self {
-            Type::Bool => Ok(Type::Bool),
-            Type::Int => Ok(Type::Int),
-            Type::Arr(ref from, ref to) => Ok(Type::Arr(
+        use self::Type::*;
+        match self {
+            t @ Bool | t @ Int => Ok(t.clone()),
+            Arr(ref from, ref to) => Ok(Arr(
                 Box::new(from.resolve(ctx)?),
                 Box::new(to.resolve(ctx)?),
             )),
-            Type::Record(ref fields) => Ok(Type::Record(fields.resolve(ctx)?)),
-            Type::Var(ref s) => ctx.lookup(s).ok_or(s.clone()),
-            Type::All(ref s, ref ty) => {
-                Ok(Type::All(s.clone(), Box::new(ty.resolve(ctx)?)))
+            Record(ref fields) => Ok(Record(fields.resolve(ctx)?)),
+            Var(ref s) => ctx.lookup(s).ok_or(s.clone()),
+            All(ref s, ref ty) => {
+                Ok(All(s.clone(), Box::new(ty.resolve(ctx)?)))
             }
-            // TODO: do we need to shadow s?
-            Type::Some(ref s, ref sigs) => {
-                Ok(Type::Some(s.clone(), sigs.resolve(ctx)?))
-            }
+            Some(ref s, ref sigs) => Ok(Some(s.clone(), sigs.resolve(ctx)?)),
         }
     }
 }
@@ -177,95 +176,105 @@ impl fmt::Display for Type {
     }
 }
 
-/// Something that can substitute values from a context into itself
 pub trait Substitutable<T: Clone> {
-    fn applysubst(self, ctx: &mut AssocList<String, T>) -> Self;
+    /// Substitute a variable into Self, respecting local scopes
+    fn applysubst(self, varname: &str, var: &T) -> Self;
 }
 
 impl Substitutable<Term> for Term {
-    fn applysubst(self, ctx: &mut TermContext) -> Term {
+    fn applysubst(self, varname: &str, var: &Term) -> Term {
         use self::Term::*;
         match self {
             t @ Bool(_) | t @ Int(_) => t,
-            Not(box t) => Not(Box::new(t.applysubst(ctx))),
-            Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
-            Abs(param, ty, box body) => {
-                ctx.push(param.clone(), Var(param.clone()));
-                let body = body.applysubst(ctx);
-                ctx.pop();
+            Not(box t) => Not(Box::new(t.applysubst(varname, var))),
+            Var(s) => if s == varname {
+                var.clone()
+            } else {
+                Var(s)
+            },
+            Abs(param, ty, box body) => if param != varname {
+                Abs(param, ty, Box::new(body.applysubst(varname, var)))
+            } else {
                 Abs(param, ty, Box::new(body))
-            }
-            InfAbs(param, box body) => {
-                ctx.push(param.clone(), Var(param.clone()));
-                let body = body.applysubst(ctx);
-                ctx.pop();
+            },
+            InfAbs(param, box body) => if param != varname {
+                InfAbs(param, Box::new(body.applysubst(varname, var)))
+            } else {
                 InfAbs(param, Box::new(body))
-            }
+            },
             TyAbs(param, box body) => {
-                let body = body.applysubst(ctx);
+                let body = body.applysubst(varname, var);
                 TyAbs(param, Box::new(body))
             }
             App(box func, box val) => App(
-                Box::new(func.applysubst(ctx)),
-                Box::new(val.applysubst(ctx)),
+                Box::new(func.applysubst(varname, var)),
+                Box::new(val.applysubst(varname, var)),
             ),
-            TyApp(box func, val) => TyApp(Box::new(func.applysubst(ctx)), val),
+            TyApp(box func, val) => {
+                TyApp(Box::new(func.applysubst(varname, var)), val)
+            }
             Arith(box l, op, box r) => Arith(
-                Box::new(l.applysubst(ctx)),
+                Box::new(l.applysubst(varname, var)),
                 op,
-                Box::new(r.applysubst(ctx)),
+                Box::new(r.applysubst(varname, var)),
             ),
             Logic(box l, op, box r) => Logic(
-                Box::new(l.applysubst(ctx)),
+                Box::new(l.applysubst(varname, var)),
                 op,
-                Box::new(r.applysubst(ctx)),
+                Box::new(r.applysubst(varname, var)),
             ),
             If(box cond, box if_, box else_) => If(
-                Box::new(cond.applysubst(ctx)),
-                Box::new(if_.applysubst(ctx)),
-                Box::new(else_.applysubst(ctx)),
+                Box::new(cond.applysubst(varname, var)),
+                Box::new(if_.applysubst(varname, var)),
+                Box::new(else_.applysubst(varname, var)),
             ),
-            Let(s, val, box rest) => {
-                ctx.push(s.clone(), Var(s.clone()));
-                let rest = rest.applysubst(ctx);
-                ctx.pop();
+            Let(s, val, box rest) => if s != varname {
+                Let(s, val, Box::new(rest.applysubst(varname, var)))
+            } else {
                 Let(s, val, Box::new(rest))
+            },
+            Record(fields) => Record(fields.applysubst(varname, var)),
+            Proj(box t, field) => {
+                Proj(Box::new(t.applysubst(varname, var)), field)
             }
-            Record(fields) => Record(fields.applysubst(ctx)),
-            Proj(box t, field) => Proj(Box::new(t.applysubst(ctx)), field),
             Pack(witness, impls, ty) => {
-                Pack(witness, impls.applysubst(ctx), ty)
+                Pack(witness, impls.applysubst(varname, var), ty)
             }
-            Unpack(ty, var, box mod_, box term) => Unpack(
+            Unpack(ty, val, box mod_, box term) => Unpack(
                 ty,
-                var,
-                Box::new(mod_.applysubst(ctx)),
-                Box::new(term.applysubst(ctx)),
+                val,
+                Box::new(mod_.applysubst(varname, var)),
+                Box::new(term.applysubst(varname, var)),
             ),
         }
     }
 }
 
 impl Substitutable<Type> for Type {
-    fn applysubst(self, ctx: &mut TypeContext) -> Type {
-        use self::Type::*;
+    fn applysubst(self, varname: &str, var: &Type) -> Type {
+        use self::Type::{All, Arr, Bool, Int, Record, Var};
         match self {
             t @ Bool | t @ Int => t,
             Arr(box from, box to) => Arr(
-                Box::new(from.applysubst(ctx)),
-                Box::new(to.applysubst(ctx)),
+                Box::new(from.applysubst(varname, var)),
+                Box::new(to.applysubst(varname, var)),
             ),
-            Record(fields) => Record(fields.applysubst(ctx)),
-            Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
-            All(param, box body) => {
-                ctx.push(param.clone(), Var(param.clone()));
-                let body = body.applysubst(ctx);
-                ctx.pop();
+            Record(fields) => Record(fields.applysubst(varname, var)),
+            Var(s) => if s == varname {
+                var.clone()
+            } else {
+                Var(s)
+            },
+            All(param, box body) => if param != varname {
+                All(param, Box::new(body.applysubst(varname, var)))
+            } else {
                 All(param, Box::new(body))
-            }
-            Some(param, sigs) => {
-                Type::Some(param.clone(), sigs.applysubst(ctx))
-            }
+            },
+            Type::Some(param, sigs) => if param != varname {
+                Type::Some(param, sigs.applysubst(varname, var))
+            } else {
+                Type::Some(param, sigs)
+            },
         }
     }
 }
@@ -334,31 +343,31 @@ mod tests {
 
     #[test]
     fn term_subst() {
-        let mut ctx =
-            TermContext::from_vec(vec![(String::from("x"), Term::Int(5))]);
+        let varname = String::from("x");
+        let var = Term::Int(5);
         assert_eq!(
-            Term::Var(String::from("x")).applysubst(&mut ctx),
+            Term::Var(String::from("x")).applysubst(&varname, &var),
             Term::Int(5)
         );
         let id_func = Term::InfAbs(
             String::from("x"),
             Box::new(Term::Var(String::from("x"))),
         );
-        assert_eq!(id_func.clone().applysubst(&mut ctx), id_func);
+        assert_eq!(id_func.clone().applysubst(&varname, &var), id_func);
     }
 
     #[test]
     fn ty_subst() {
-        let mut ctx =
-            TypeContext::from_vec(vec![(String::from("X"), Type::Int)]);
+        let varname = String::from("X");
+        let var = Type::Int;
         assert_eq!(
-            Type::Var(String::from("X")).applysubst(&mut ctx),
+            Type::Var(String::from("X")).applysubst(&varname, &var),
             Type::Int
         );
         let func = Type::All(
             String::from("X"),
             Box::new(Type::Var(String::from("X"))),
         );
-        assert_eq!(func.clone().applysubst(&mut ctx), func);
+        assert_eq!(func.clone().applysubst(&varname, &var), func);
     }
 }

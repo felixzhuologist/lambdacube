@@ -49,10 +49,7 @@ pub fn typecheck(
             _ => Err(TypeError::FuncApp),
         },
         Term::TyApp(box func, box ty) => match typecheck(func, context)? {
-            Type::All(s, box body) => {
-                context.push(s.clone(), ty.clone());
-                Ok(body.clone().applysubst(context))
-            }
+            Type::All(s, box body) => Ok(body.clone().applysubst(&s, ty)),
             _ => Err(TypeError::TyFuncApp),
         },
         Term::Arith(box left, op, box right) => {
@@ -103,9 +100,7 @@ pub fn typecheck(
             let ty =
                 ty.resolve(context).map_err(|s| TypeError::NameError(s))?;
             if let Type::Some(name, sigs) = ty {
-                context.push(name.clone(), witness.clone());
-                let mut expected = sigs.clone().applysubst(context).inner;
-                context.pop();
+                let mut expected = sigs.clone().applysubst(&name, witness).inner;
 
                 // TODO: code reuse
                 let mut actual = Vec::new();

@@ -23,12 +23,10 @@ pub fn eval_step(
         Not(box Bool(b)) => Ok(Bool(!b)),
         Not(box t) => Ok(Not(Box::new(eval_step(t, context)?))),
         App(box Abs(argname, _, box body), box arg) if arg.is_reduced() => {
-            context.push(argname.clone(), arg.clone());
-            Ok(body.clone().applysubst(context))
+            Ok(body.clone().applysubst(&argname, arg))
         }
         App(box InfAbs(argname, box body), box arg) if arg.is_reduced() => {
-            context.push(argname.clone(), arg.clone());
-            Ok(body.clone().applysubst(context))
+            Ok(body.clone().applysubst(&argname, arg))
         }
         TyApp(box TyAbs(_argname, box body), box _arg) => {
             // TODO: does eval care about the type substitution?
