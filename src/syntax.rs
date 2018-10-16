@@ -1,4 +1,4 @@
-use assoclist::{AssocList, TypeContext};
+use assoclist::{AssocList, TermContext, TypeContext};
 
 use std::fmt;
 use std::marker;
@@ -177,6 +177,99 @@ impl fmt::Display for Type {
     }
 }
 
+/// Something that can substitute values from a context into itself
+pub trait Substitutable<T: Clone> {
+    fn applysubst(self, ctx: &mut AssocList<String, T>) -> Self;
+}
+
+impl Substitutable<Term> for Term {
+    fn applysubst(self, ctx: &mut TermContext) -> Term {
+        use self::Term::*;
+        match self {
+            t @ Bool(_) | t @ Int(_) => t,
+            Not(box t) => Not(Box::new(t.applysubst(ctx))),
+            Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
+            Abs(param, ty, box body) => {
+                ctx.push(param.clone(), Var(param.clone()));
+                let body = body.applysubst(ctx);
+                ctx.pop();
+                Abs(param, ty, Box::new(body))
+            }
+            InfAbs(param, box body) => {
+                ctx.push(param.clone(), Var(param.clone()));
+                let body = body.applysubst(ctx);
+                ctx.pop();
+                InfAbs(param, Box::new(body))
+            }
+            TyAbs(param, box body) => {
+                let body = body.applysubst(ctx);
+                TyAbs(param, Box::new(body))
+            }
+            App(box func, box val) => App(
+                Box::new(func.applysubst(ctx)),
+                Box::new(val.applysubst(ctx)),
+            ),
+            TyApp(box func, val) => TyApp(Box::new(func.applysubst(ctx)), val),
+            Arith(box l, op, box r) => Arith(
+                Box::new(l.applysubst(ctx)),
+                op,
+                Box::new(r.applysubst(ctx)),
+            ),
+            Logic(box l, op, box r) => Logic(
+                Box::new(l.applysubst(ctx)),
+                op,
+                Box::new(r.applysubst(ctx)),
+            ),
+            If(box cond, box if_, box else_) => If(
+                Box::new(cond.applysubst(ctx)),
+                Box::new(if_.applysubst(ctx)),
+                Box::new(else_.applysubst(ctx)),
+            ),
+            Let(s, val, box rest) => {
+                ctx.push(s.clone(), Var(s.clone()));
+                let rest = rest.applysubst(ctx);
+                ctx.pop();
+                Let(s, val, Box::new(rest))
+            }
+            Record(fields) => Record(fields.applysubst(ctx)),
+            Proj(box t, field) => Proj(Box::new(t.applysubst(ctx)), field),
+            Pack(witness, impls, ty) => {
+                Pack(witness, impls.applysubst(ctx), ty)
+            }
+            Unpack(ty, var, box mod_, box term) => Unpack(
+                ty,
+                var,
+                Box::new(mod_.applysubst(ctx)),
+                Box::new(term.applysubst(ctx)),
+            ),
+        }
+    }
+}
+
+impl Substitutable<Type> for Type {
+    fn applysubst(self, ctx: &mut TypeContext) -> Type {
+        use self::Type::*;
+        match self {
+            t @ Bool | t @ Int => t,
+            Arr(box from, box to) => Arr(
+                Box::new(from.applysubst(ctx)),
+                Box::new(to.applysubst(ctx)),
+            ),
+            Record(fields) => Record(fields.applysubst(ctx)),
+            Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
+            All(param, box body) => {
+                ctx.push(param.clone(), Var(param.clone()));
+                let body = body.applysubst(ctx);
+                ctx.pop();
+                All(param, Box::new(body))
+            }
+            Some(param, sigs) => {
+                Type::Some(param.clone(), sigs.applysubst(ctx))
+            }
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ArithOp {
     Mul,
@@ -232,5 +325,40 @@ impl fmt::Display for BoolOp {
             BoolOp::And => write!(f, "and"),
             BoolOp::Or => write!(f, "or"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn term_subst() {
+        let mut ctx =
+            TermContext::from_vec(vec![(String::from("x"), Term::Int(5))]);
+        assert_eq!(
+            Term::Var(String::from("x")).applysubst(&mut ctx),
+            Term::Int(5)
+        );
+        let id_func = Term::InfAbs(
+            String::from("x"),
+            Box::new(Term::Var(String::from("x"))),
+        );
+        assert_eq!(id_func.clone().applysubst(&mut ctx), id_func);
+    }
+
+    #[test]
+    fn ty_subst() {
+        let mut ctx =
+            TypeContext::from_vec(vec![(String::from("X"), Type::Int)]);
+        assert_eq!(
+            Type::Var(String::from("X")).applysubst(&mut ctx),
+            Type::Int
+        );
+        let func = Type::All(
+            String::from("X"),
+            Box::new(Type::Var(String::from("X"))),
+        );
+        assert_eq!(func.clone().applysubst(&mut ctx), func);
     }
 }

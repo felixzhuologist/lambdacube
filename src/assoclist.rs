@@ -2,7 +2,7 @@
 // instead of a std::collections::HashMap since currently performance is not a
 // concern and to make the compiled web assembly as small as possible
 use std::fmt;
-use syntax::{Resolvable, Term, Type};
+use syntax::{Resolvable, Substitutable, Term, Type};
 
 pub type TermContext = AssocList<String, Term>;
 pub type TypeContext = AssocList<String, Type>;
@@ -66,6 +66,28 @@ impl fmt::Display for AssocList<String, Box<Type>> {
                 .map(|(k, v)| format!("{}: {}", k, v))
                 .collect::<Vec<String>>()
                 .join(", ")
+        )
+    }
+}
+
+impl Substitutable<Term> for AssocList<String, Box<Term>> {
+    fn applysubst(self, ctx: &mut TermContext) -> AssocList<String, Box<Term>> {
+        AssocList::from_vec(
+            self.inner
+                .into_iter()
+                .map(|(field, box val)| (field, Box::new(val.applysubst(ctx))))
+                .collect(),
+        )
+    }
+}
+
+impl Substitutable<Type> for AssocList<String, Box<Type>> {
+    fn applysubst(self, ctx: &mut TypeContext) -> AssocList<String, Box<Type>> {
+        AssocList::from_vec(
+            self.inner
+                .into_iter()
+                .map(|(field, box ty)| (field, Box::new(ty.applysubst(ctx))))
+                .collect(),
         )
     }
 }

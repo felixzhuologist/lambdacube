@@ -1,9 +1,7 @@
 use assoclist::{AssocList, TermContext as Context};
 use errors::EvalError;
-use syntax::ArithOp;
-use syntax::BoolOp;
-use syntax::Term;
 use syntax::Term::*;
+use syntax::{ArithOp, BoolOp, Substitutable, Term};
 
 /// call eval step on a term until it is stuck
 pub fn eval_ast(term: &Term, ctx: &mut Context) -> Result<Term, EvalError> {
@@ -26,11 +24,11 @@ pub fn eval_step(
         Not(box t) => Ok(Not(Box::new(eval_step(t, context)?))),
         App(box Abs(argname, _, box body), box arg) if arg.is_reduced() => {
             context.push(argname.clone(), arg.clone());
-            Ok(applysubst(body.clone(), context))
+            Ok(body.clone().applysubst(context))
         }
         App(box InfAbs(argname, box body), box arg) if arg.is_reduced() => {
             context.push(argname.clone(), arg.clone());
-            Ok(applysubst(body.clone(), context))
+            Ok(body.clone().applysubst(context))
         }
         TyApp(box TyAbs(_argname, box body), box _arg) => {
             // TODO: does eval care about the type substitution?
@@ -149,82 +147,6 @@ pub fn eval_step(
     }
 }
 
-fn applysubst(term: Term, ctx: &mut Context) -> Term {
-    match term {
-        t @ Bool(_) | t @ Int(_) => t,
-        Not(box t) => Not(Box::new(applysubst(t, ctx))),
-        Var(s) => ctx.lookup(&s).unwrap_or(Var(s.clone())),
-        Abs(param, ty, box body) => {
-            ctx.push(param.clone(), Var(param.clone()));
-            let body = applysubst(body, ctx);
-            ctx.pop();
-            Abs(param, ty, Box::new(body))
-        }
-        InfAbs(param, box body) => {
-            ctx.push(param.clone(), Var(param.clone()));
-            let body = applysubst(body, ctx);
-            ctx.pop();
-            InfAbs(param, Box::new(body))
-        }
-        TyAbs(param, box body) => {
-            let body = applysubst(body, ctx);
-            TyAbs(param, Box::new(body))
-        }
-        App(box func, box val) => App(
-            Box::new(applysubst(func, ctx)),
-            Box::new(applysubst(val, ctx)),
-        ),
-        TyApp(box func, val) => TyApp(Box::new(applysubst(func, ctx)), val),
-        Arith(box l, op, box r) => Arith(
-            Box::new(applysubst(l, ctx)),
-            op,
-            Box::new(applysubst(r, ctx)),
-        ),
-        Logic(box l, op, box r) => Logic(
-            Box::new(applysubst(l, ctx)),
-            op,
-            Box::new(applysubst(r, ctx)),
-        ),
-        If(box cond, box if_, box else_) => If(
-            Box::new(applysubst(cond, ctx)),
-            Box::new(applysubst(if_, ctx)),
-            Box::new(applysubst(else_, ctx)),
-        ),
-        Let(s, val, box rest) => {
-            ctx.push(s.clone(), Var(s.clone()));
-            let rest = applysubst(rest, ctx);
-            ctx.pop();
-            Let(s, val, Box::new(rest))
-        }
-        Record(fields) => Record(AssocList::from_vec(
-            fields
-                .inner
-                .into_iter()
-                .map(|(field, box val)| (field, Box::new(applysubst(val, ctx))))
-                .collect(),
-        )),
-        Proj(box t, field) => Proj(Box::new(applysubst(t, ctx)), field),
-        // TODO: code reuse
-        Pack(witness, impls, ty) => {
-            let impls = AssocList::from_vec(
-                impls
-                    .inner
-                    .into_iter()
-                    .map(|(field, box val)| {
-                        (field, Box::new(applysubst(val, ctx)))
-                    }).collect(),
-            );
-            Pack(witness, impls, ty)
-        }
-        Unpack(ty, var, box mod_, box term) => Unpack(
-            ty,
-            var,
-            Box::new(applysubst(mod_, ctx)),
-            Box::new(applysubst(term, ctx)),
-        ),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,14 +219,5 @@ mod tests {
         assert_eq!(eval_code("fun[X] (x: X) -> x"), "<fun>");
         assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
         assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
-    }
-
-    #[test]
-    fn substitution() {
-        let mut ctx = Context::from_vec(vec![(String::from("x"), Int(5))]);
-        assert_eq!(applysubst(Var(String::from("x")), &mut ctx), Int(5));
-        let id_func =
-            InfAbs(String::from("x"), Box::new(Var(String::from("x"))));
-        assert_eq!(applysubst(id_func.clone(), &mut ctx), id_func);
     }
 }

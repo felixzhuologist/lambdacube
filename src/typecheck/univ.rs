@@ -2,7 +2,7 @@
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::{Resolvable, Term, Type};
+use syntax::{Resolvable, Substitutable, Term, Type};
 
 pub fn typecheck(
     term: &Term,
@@ -51,7 +51,7 @@ pub fn typecheck(
         Term::TyApp(box func, box ty) => match typecheck(func, context)? {
             Type::All(s, box body) => {
                 context.push(s.clone(), ty.clone());
-                Ok(applysubst(body.clone(), context))
+                Ok(body.clone().applysubst(context))
             }
             _ => Err(TypeError::TyFuncApp),
         },
@@ -105,41 +105,6 @@ pub fn typecheck(
     }
 }
 
-fn applysubst(ty: Type, ctx: &mut Context) -> Type {
-    match ty {
-        t @ Type::Bool | t @ Type::Int => t,
-        Type::Arr(box from, box to) => Type::Arr(
-            Box::new(applysubst(from, ctx)),
-            Box::new(applysubst(to, ctx)),
-        ),
-        Type::Record(fields) => Type::Record(AssocList::from_vec(
-            fields
-                .inner
-                .into_iter()
-                .map(|(field, box ty)| (field, Box::new(applysubst(ty, ctx))))
-                .collect(),
-        )),
-        Type::Var(s) => ctx.lookup(&s).unwrap_or(Type::Var(s.clone())),
-        Type::All(param, box body) => {
-            ctx.push(param.clone(), Type::Var(param.clone()));
-            let body = applysubst(body, ctx);
-            ctx.pop();
-            Type::All(param, Box::new(body))
-        }
-        // TODO: refactor shared code
-        Type::Some(param, sigs) => Type::Some(
-            param.clone(),
-            AssocList::from_vec(
-                sigs.inner
-                    .into_iter()
-                    .map(|(field, box ty)| {
-                        (field, Box::new(applysubst(ty, ctx)))
-                    }).collect(),
-            ),
-        ),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,19 +134,5 @@ mod tests {
             typecheck_code("let f = fun[X] (x: X) -> x in f[Int] 0"),
             "Int"
         );
-    }
-
-    #[test]
-    fn substitution() {
-        let mut ctx = Context::from_vec(vec![(String::from("X"), Type::Int)]);
-        assert_eq!(
-            applysubst(Type::Var(String::from("X")), &mut ctx),
-            Type::Int
-        );
-        let func = Type::All(
-            String::from("X"),
-            Box::new(Type::Var(String::from("X"))),
-        );
-        assert_eq!(applysubst(func.clone(), &mut ctx), func);
     }
 }
