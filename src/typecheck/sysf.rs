@@ -90,10 +90,11 @@ pub fn typecheck(
             Ok(Type::Record(AssocList::from_vec(types)))
         }
         Term::Proj(box term, key) => match typecheck(term, context)? {
-            Type::Record(fields) => match fields.lookup(&key) {
-                Some(type_) => Ok(*type_),
-                None => Err(TypeError::InvalidKey(key.clone())),
-            },
+            // TODO: maybe for modules we should have a different err message
+            Type::Some(_, fields) | Type::Record(fields) => fields
+                .lookup(&key)
+                .map(|t| *t)
+                .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::Pack(box witness, impls, box ty) => {
@@ -196,20 +197,25 @@ mod tests {
 
     #[test]
     fn e2e_exis() {
-        let pack = "module ops
-                type Int
-                val new = 1
-                val get = fun (x: Int) -> x
-                val inc = fun (x: Int) -> x + 1
-            end as 
+        let module = "
             module sig
                 type Counter
                 val new : Counter
                 val get : Counter -> Int
                 val inc : Counter -> Counter
             end";
+
+        let pack = format!(
+            "module ops
+                type Int
+                val new = 1
+                val get = fun (x: Int) -> x
+                val inc = fun (x: Int) -> x + 1
+            end as {}",
+            module
+        );
         assert_eq!(
-            typecheck_code(pack),
+            typecheck_code(&pack),
             "∃Counter. new: Counter, get: (Counter -> Int), \
              inc: (Counter -> Counter)"
         );
@@ -224,5 +230,19 @@ mod tests {
             pack
         );
         assert_eq!(typecheck_code(&open_use_ty), "(Counter -> Int)");
+
+        let modty = grammar::TypeParser::new().parse(module).unwrap();
+        let mut ctx = Context::empty();
+        ctx.push(String::from("CounterADT"), *modty);
+        let ast = grammar::TermParser::new()
+            .parse("fun (c: CounterADT) -> c.get (c.inc c.new)")
+            .unwrap();
+        let result = typecheck(&ast, &mut ctx)
+            .map(|ty| ty.to_string())
+            .unwrap_or_else(|err| err.to_string());
+        assert_eq!(
+            result,
+            "(∃Counter. new: Counter, get: (Counter -> Int), \
+            inc: (Counter -> Counter) -> Int)");
     }
 }

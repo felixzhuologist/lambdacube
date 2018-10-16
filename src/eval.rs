@@ -121,12 +121,12 @@ pub fn eval_step(
             Ok(Record(AssocList::from_vec(new_fields)))
         }
         Proj(box t, key) if t.is_val() => match t {
-            Record(fields) => {
+            Pack(_, fields, _) | Record(fields) => {
                 let key = key.to_string();
-                match fields.lookup(&key) {
-                    Some(val) => Ok(*val),
-                    None => Err(EvalError::KeyError(key)),
-                }
+                fields
+                    .lookup(&key)
+                    .map(|v| *v)
+                    .ok_or(EvalError::KeyError(key))
             }
             _ => panic!("type checking should catch this"),
         },
