@@ -97,10 +97,15 @@ pub fn typecheck(
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::Pack(box witness, impls, box ty) => {
-            let ty =
-                ty.resolve(context).map_err(|s| TypeError::NameError(s))?;
+            let ty = resolve_until_nonvar(ty, context)
+                .map_err(|s| TypeError::NameError(s))?;
             if let Type::Some(name, sigs) = ty {
-                let mut expected = sigs.clone().applysubst(&name, witness).inner;
+                let mut expected = sigs
+                    .clone()
+                    .applysubst(&name, witness)
+                    .resolve(context)
+                    .map_err(|s| TypeError::NameError(s))?
+                    .inner;
 
                 // TODO: code reuse
                 let mut actual = Vec::new();
@@ -141,6 +146,23 @@ pub fn typecheck(
     }
 }
 
+// Not sure if there's a more general way to do this, but we need to resolve
+// the type inside a Term::Pack without erroring on the type variable that is
+// inside the potential Type::Some. To get around that, we resolve until we get
+// a non variable type (in which case we can error right away if it's not a
+// Type::Some), then once we get to the Type::Some, we can substitute the witness
+// type into it. We can't try to substitute the witness into the type before
+// resolving it into a Type::Some because we don't want to overwrite global
+// type bindings which might share the same name AND the current applysubst
+// implementation would explicitly shadow it inside the Type::Some anyways
+pub fn resolve_until_nonvar(ty: &Type, ctx: &Context) -> Result<Type, String> {
+    if let Type::Var(ref s) = ty {
+        resolve_until_nonvar(&ctx.lookup(s).ok_or(s.clone())?, ctx)
+    } else {
+        Ok(ty.clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,5 +192,37 @@ mod tests {
             typecheck_code("let f = fun[X] (x: X) -> x in f[Int] 0"),
             "Int"
         );
+    }
+
+    #[test]
+    fn e2e_exis() {
+        let pack = "module ops
+                type Int
+                val new = 1
+                val get = fun (x: Int) -> x
+                val inc = fun (x: Int) -> x + 1
+            end as 
+            module sig
+                type Counter
+                val new : Counter
+                val get : Counter -> Int
+                val inc : Counter -> Counter
+            end";
+        assert_eq!(
+            typecheck_code(pack),
+            "∃Counter. new: Counter, get: (Counter -> Int), \
+             inc: (Counter -> Counter)"
+        );
+
+        let open_use_term = format!(
+            "open {} as counter: Counter in counter.get (counter.inc counter.new)",
+            pack);
+        assert_eq!(typecheck_code(&open_use_term), "Int");
+
+        let open_use_ty = format!(
+            "open {} as counter: Counter in fun (c: Counter) -> counter.get c",
+            pack
+        );
+        assert_eq!(typecheck_code(&open_use_ty), "(Counter -> Int)");
     }
 }
