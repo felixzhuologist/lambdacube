@@ -81,9 +81,9 @@ pub fn typecheck(
         Term::Let(varname, box val, box term) => {
             let val_type = typecheck(val, context)?;
             context.push(varname.clone(), val_type);
-            let result = Ok(typecheck(term, context)?);
+            let result = typecheck(term, context)?;
             context.pop();
-            result
+            Ok(result)
         }
         Term::Record(fields) => {
             let mut types = Vec::new();
@@ -99,9 +99,50 @@ pub fn typecheck(
             },
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::InfAbs(_, _) | Term::Pack(_, _, _) | Term::Unpack(_, _, _, _) => {
-            Err(TypeError::Unsupported)
+        Term::Pack(box witness, impls, box ty) => {
+            let ty =
+                ty.resolve(context).map_err(|s| TypeError::NameError(s))?;
+            if let Type::Some(name, sigs) = ty {
+                context.push(name.clone(), witness.clone());
+                let mut expected = sigs.clone().applysubst(context).inner;
+                context.pop();
+
+                // TODO: code reuse
+                let mut actual = Vec::new();
+                for (name, box val) in impls.inner.iter() {
+                    actual.push((
+                        name.clone(),
+                        Box::new(typecheck(val, context)?),
+                    ))
+                }
+
+                expected.sort_by_key(|(s, _)| s.clone());
+                actual.sort_by_key(|(s, _)| s.clone());
+                if actual == expected {
+                    Ok(Type::Some(name.clone(), sigs))
+                } else {
+                    Err(TypeError::ModuleMismatch(
+                        AssocList::from_vec(expected),
+                        AssocList::from_vec(actual),
+                    ))
+                }
+            } else {
+                Err(TypeError::ExpectedSome)
+            }
         }
+        Term::Unpack(tyvar, var, box mod_, box term) => {
+            if let Type::Some(_, sigs) = typecheck(mod_, context)? {
+                context.push(tyvar.clone(), Type::Var(tyvar.clone()));
+                context.push(var.clone(), Type::Record(sigs.clone()));
+                let result = typecheck(term, context)?;
+                context.pop();
+                context.pop();
+                Ok(result)
+            } else {
+                Err(TypeError::ExpectedSome)
+            }
+        }
+        Term::InfAbs(_, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -120,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn e2e_type() {
+    fn e2e_univ() {
         assert_eq!(typecheck_code("fun[X] (x: X) -> x"), "∀X. (X -> X)");
         assert_eq!(
             typecheck_code("fun[X, Y] (f: X -> Y) (x: X) -> f x"),

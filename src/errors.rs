@@ -1,3 +1,4 @@
+use assoclist::AssocList;
 use std::fmt;
 use syntax::{ArithOp, BoolOp, Type};
 
@@ -41,6 +42,8 @@ pub enum TypeError {
     // multiple parsers which is expensive because the generated parsers are
     // large. So instead, the typechecker returns an Unsupported error for now
     Unsupported,
+    ExpectedSome,
+    ModuleMismatch(AssocList<String, Box<Type>>, AssocList<String, Box<Type>>),
 }
 
 impl fmt::Display for TypeError {
@@ -83,6 +86,18 @@ impl fmt::Display for TypeError {
             // TODO: this shoudl probably be a syntax error
             TypeError::Unsupported => {
                 write!(f, "Attempted to use an unsupported feature for the current type system")
+            }
+            TypeError::ExpectedSome => {
+                write!(f, "Expected an existential type")
+            }
+            TypeError::ModuleMismatch(ref expected, ref actual) => {
+                write!(
+                    f,
+                    "Your module implementation does not match the declared \
+                    type signature. Your implementation has type:\n{}\nBut \
+                    the declared interface is of type:\n{}",
+                    actual,
+                    expected)
             }
         }
     }
