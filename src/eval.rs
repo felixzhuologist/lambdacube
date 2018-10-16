@@ -87,13 +87,18 @@ pub fn eval_step(
             t1.clone(),
             t2.clone(),
         )),
-        Unpack(_, varname, box val, box term)
-        | Let(varname, box val, box term)
-            if val.is_val() =>
-        {
+        Let(varname, box val, box term) if val.is_val() => {
             context.push(varname.clone(), val.clone());
             Ok(term.clone())
         }
+        Unpack(_, varname, box val, box term) if val.is_val() => match val {
+            Pack(_, impls, _) => {
+                let val = Term::Record(impls.clone());
+                context.push(varname.clone(), val.clone());
+                Ok(term.clone())
+            }
+            _ => panic!("type checking should catch this"),
+        },
         Let(varname, box val, term) => Ok(Let(
             varname.clone(),
             Box::new(eval_step(val, context)?),
@@ -217,5 +222,30 @@ mod tests {
         assert_eq!(eval_code("fun[X] (x: X) -> x"), "<fun>");
         assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
         assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
+
+        let pack = "module ops
+                type Int
+                val new = 1
+                val get = fun (x: Int) -> x
+                val inc = fun (x: Int) -> x + 1
+            end as 
+            module sig
+                type Counter
+                val new : Counter
+                val get : Counter -> Int
+                val inc : Counter -> Counter
+            end";
+        assert_eq!(eval_code(pack), "<mod>");
+
+        let open_use_term = format!(
+            "open {} as counter: Counter in counter.get (counter.inc counter.new)",
+            pack);
+        assert_eq!(eval_code(&open_use_term), "2");
+
+        let open_use_ty = format!(
+            "open {} as counter: Counter in fun (c: Counter) -> counter.get c",
+            pack
+        );
+        assert_eq!(eval_code(&open_use_ty), "<fun>");
     }
 }
