@@ -3,12 +3,26 @@ const run = async () => {
 
 const { eval_line, eval_program, set_typechecker } = await lib;
 
+// TODO: default starter code for each combination?
+const sysfText = `type CounterADT = module sig
+  type Counter
+  val new : Counter
+  val get : Counter -> Int
+  val inc : Counter -> Counter
+end;
+
+let counterADT = module ops
+  type Int
+  val new = 1
+  val get = fun (x: Int) -> x
+  val inc = fun (x: Int) -> x + 1
+end as CounterADT;`
+
 const featureSelector = $('#feature-selector');
 const features = [
     { value: 'subtyping', enabled: false, display: 'Subtyping' },
     { value: 'hm', enabled: false, display: 'Hindley-Milner' },
-    { value: 'universal', enabled: false, display: 'Universal types' },
-    { value: 'existential', enabled: false, display: 'Existential types' },
+    { value: 'sysf', enabled: false, display: 'System F' },
     { value: 'higher', enabled: false, display: 'Higher order types' },
     { value: 'dependent', enabled: false, display: 'Dependent types' },
     { value: 'linear', enabled: false, display: 'Linear types' },
@@ -17,9 +31,9 @@ const features = [
 // together. e.g. [true, false, true] means that feature 1 and 3 can be used
 // together
 const combinations = [
-    [true, false, false, false, false, false, false],
-    [false, true, false, false, false, false, false],
-    [false, false, true, false, false, false, false],
+    [true, false, false, false, false, false],
+    [false, true, false, false, false, false],
+    [false, false, true, false, false, false],
 ];
 
 const updateOptions = () => {
@@ -61,6 +75,11 @@ featureSelector[0].addEventListener('change', event => {
     features.forEach(feature => {
         feature.enabled = selected.some(val => feature.value === val);
     })
+
+    // TODO: default starter code for each combination?
+    let code = (selected.some((feat) => feat === 'sysf')) ? sysfText : '';
+    document.getElementById('batch-input').value = code;
+
     // TODO: debounce this?
     set_typechecker(serialize_features());
     jqconsole.Reset();
