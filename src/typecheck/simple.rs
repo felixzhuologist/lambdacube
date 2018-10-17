@@ -86,7 +86,8 @@ pub fn typecheck(
         | Term::TyApp(_, _)
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
-        | Term::Unpack(_, _, _, _) => Err(TypeError::Unsupported),
+        | Term::Unpack(_, _, _, _)
+        | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
 

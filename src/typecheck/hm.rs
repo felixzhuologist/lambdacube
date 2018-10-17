@@ -101,7 +101,8 @@ pub fn get_constraints(
         Term::TyAbs(_, _)
         | Term::TyApp(_, _)
         | Term::Pack(_, _, _)
-        | Term::Unpack(_, _, _, _) => Err(TypeError::Unsupported),
+        | Term::Unpack(_, _, _, _)
+        | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -188,8 +189,9 @@ fn tysubst(s: &str, tyout: &Type, tyin: Type) -> Type {
             Type::Var(name)
         },
         // these types don't exist in HM and this function isn't used elsewhere
-        Type::Some(_, _) => unimplemented!(),
-        Type::All(_, _) => unimplemented!(),
+        Type::Some(_, _) | Type::All(_, _) | Type::BoundedAll(_, _, _) => {
+            unimplemented!()
+        }
     }
 }
 
@@ -201,8 +203,9 @@ pub fn occursin(s: &str, ty: &Type) -> bool {
         Type::Record(_fields) => unimplemented!(),
         Type::Var(name) => name == s,
         // these types don't exist in HM and this function isn't used elsewhere
-        Type::Some(_, _) => unimplemented!(),
-        Type::All(_, _) => unimplemented!(),
+        Type::Some(_, _) | Type::All(_, _) | Type::BoundedAll(_, _, _) => {
+            unimplemented!()
+        }
     }
 }
 

@@ -25,6 +25,8 @@ pub enum Term {
     Abs(String, Box<Type>, Box<Term>),
     /// type abstraction (function from type to term)
     TyAbs(String, Box<Term>),
+    /// bounded type abstraction
+    BoundedTyAbs(String, Box<Term>, Box<Type>),
     /// regular abstraction with inferred type
     InfAbs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
@@ -38,7 +40,7 @@ pub enum Term {
     /// introduce an existential: provide the witness type, the implementation,
     /// and the existential type it should inhabit - the term must have its
     /// type explicitly annotated when being defined
-    // Analogous to Type::Some, this could take a general Term as the implementation
+    // Analogously to Type::Some, this could take a general Term
     // but right now we assume that it will be a Term::Record anyways
     Pack(Box<Type>, AssocList<String, Box<Term>>, Box<Type>),
     /// unpack an existential and give it a name for the scope of the third term
@@ -60,6 +62,7 @@ impl Term {
             | Term::Bool(_)
             | Term::Abs(_, _, _)
             | Term::TyAbs(_, _)
+            | Term::BoundedTyAbs(_, _, _)
             | Term::InfAbs(_, _) => true,
             Term::Not(box t) => t.is_val(),
             Term::Pack(_, fields, _) | Term::Record(fields) => {
@@ -85,9 +88,10 @@ impl fmt::Display for Term {
             Term::Not(ref t) => write!(f, "not {}", t),
             Term::Var(ref s) => write!(f, "{}", s),
             Term::Int(n) => write!(f, "{}", n),
-            Term::Abs(_, _, _) | Term::InfAbs(_, _) | Term::TyAbs(_, _) => {
-                write!(f, "<fun>")
-            }
+            Term::Abs(_, _, _)
+            | Term::InfAbs(_, _)
+            | Term::TyAbs(_, _)
+            | Term::BoundedTyAbs(_, _, _) => write!(f, "<fun>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::TyApp(ref func, ref arg) => write!(f, "{} [{}]", func, arg),
             Term::Arith(ref l, ref op, ref r) => {
@@ -128,6 +132,10 @@ pub enum Type {
     Record(AssocList<String, Box<Type>>),
     Var(String),
     All(String, Box<Type>),
+    // This could encompass the All type by putting Top as the second type argument
+    // but with the way Terms and Types are shared across all typecheckers it
+    // is probably simpler to keep them separate for now
+    BoundedAll(String, Box<Type>, Box<Type>),
     // The second parameter is a general Type in the TAPL implementation but
     // currently it's only possible to instantiate a Type::Some with a Record type
     // anyways so use an AssocList directly
@@ -156,6 +164,11 @@ impl Resolvable for Type {
             All(ref s, ref ty) => {
                 Ok(All(s.clone(), Box::new(ty.resolve(ctx)?)))
             }
+            BoundedAll(ref s, ref ty, ref bound) => Ok(BoundedAll(
+                s.clone(),
+                Box::new(ty.resolve(ctx)?),
+                Box::new(bound.resolve(ctx)?),
+            )),
             Some(ref s, ref sigs) => Ok(Some(s.clone(), sigs.resolve(ctx)?)),
         }
     }
@@ -168,10 +181,12 @@ impl fmt::Display for Type {
             Type::Int => write!(f, "Int"),
             // TODO: parenthesize
             Type::Arr(ref from, ref to) => write!(f, "({} -> {})", from, to),
-            // TODO: refactor repeated code?
             Type::Record(ref rec) => write!(f, "{{{}}}", rec),
             Type::Var(ref s) => write!(f, "{}", s),
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
+            Type::BoundedAll(ref s, ref ty, ref bound) => {
+                write!(f, "∀{}<:{}. {}", s, bound, ty)
+            }
             Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
         }
     }
@@ -206,6 +221,10 @@ impl Substitutable<Term> for Term {
             TyAbs(param, box body) => {
                 let body = body.applysubst(varname, var);
                 TyAbs(param, Box::new(body))
+            }
+            BoundedTyAbs(param, box body, ty) => {
+                let body = body.applysubst(varname, var);
+                BoundedTyAbs(param, Box::new(body), ty)
             }
             App(box func, box val) => App(
                 Box::new(func.applysubst(varname, var)),
@@ -253,7 +272,7 @@ impl Substitutable<Term> for Term {
 
 impl Substitutable<Type> for Type {
     fn applysubst(self, varname: &str, var: &Type) -> Type {
-        use self::Type::{All, Arr, Bool, Int, Record, Var};
+        use self::Type::{All, Arr, Bool, BoundedAll, Int, Record, Var};
         match self {
             t @ Bool | t @ Int => t,
             Arr(box from, box to) => Arr(
@@ -270,6 +289,15 @@ impl Substitutable<Type> for Type {
                 All(param, Box::new(body.applysubst(varname, var)))
             } else {
                 All(param, Box::new(body))
+            },
+            BoundedAll(param, box body, box bound) => if param != varname {
+                BoundedAll(
+                    param,
+                    Box::new(body.applysubst(varname, var)),
+                    Box::new(bound),
+                )
+            } else {
+                BoundedAll(param, Box::new(body), Box::new(bound))
             },
             Type::Some(param, sigs) => if param != varname {
                 Type::Some(param, sigs.applysubst(varname, var))

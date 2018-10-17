@@ -204,4 +204,26 @@ pub mod tests {
                 .is_ok()
         );
     }
+
+    #[test]
+    fn test_bounded_univ() {
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun[X <: Int] (x: X) -> x")
+                .is_ok()
+        );
+        assert!(grammar::TermParser::new().parse("polyfunc[X]").is_ok());
+        assert!(grammar::TermParser::new().parse("polyfunc[X] 0").is_ok());
+        assert!(
+            grammar::TermParser::new()
+                .parse("polyfunc[T, U, V] 0")
+                .is_ok()
+        );
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun[X, Y <: {a: Int}] (x: X) (y: Y) -> x")
+                .is_ok()
+        );
+        assert!(grammar::TermParser::new().parse("myfunc[X, Y] x y").is_ok());
+    }
 }

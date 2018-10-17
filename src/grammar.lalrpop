@@ -28,6 +28,7 @@ pub Binder: Binder = {
     "type" <s:TyIdent> "=" <t:Type> => Binder::TyBind(s, *t),
 }
 
+// TODO: let users evaluate global type binders to have the type printed out?
 pub Term: Box<Term> = {
     <AppTerm>,
     "not" <Term> => Box::new(Term::Not(<>)),
@@ -40,7 +41,7 @@ pub Term: Box<Term> = {
             (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
             (arg, None) => Term::InfAbs(arg, Box::new(func))
         })),
-    FuncDef "[" <univ:NECommaSep<TyIdent>> "]" <p:TypedParams> "->" <body:Term> => {
+    FuncDef "[" <univ:NECommaSep<TypeParam>> "]" <p:TypedParams> "->" <body:Term> => {
         let func = p
             .into_iter()
             .rev()
@@ -49,10 +50,17 @@ pub Term: Box<Term> = {
         Box::new(univ
             .into_iter()
             .rev()
-            .fold(func, |func, next_| Term::TyAbs(next_, Box::new(func))))
+            .fold(func, |func, next_| match next_ {
+                (var, Some(bound)) => Term::BoundedTyAbs(var, Box::new(func), bound),
+                (var, None) => Term::TyAbs(var, Box::new(func)),
+            }))
     },
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
+}
+
+TypeParam: (String, Option<Box<Type>>) = {
+    <TyIdent> <("<:" <Type>)?>
 }
 
 TypedParams: Vec<(String, Box<Type>)> = {
@@ -149,6 +157,7 @@ pub Type: Box<Type> = {
     <AType> "->" <Type> => Box::new(Type::Arr(<>)),
 }
 
+// TODO: parse missing types like polymorphic functions
 AType: Box<Type> = {
     "(" <Type> ")",
     "{" <CommaSep<RecordFieldType>> "}" =>

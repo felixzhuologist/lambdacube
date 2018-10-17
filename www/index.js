@@ -90,6 +90,7 @@ featureSelector[0].addEventListener('change', event => {
 const jqconsole = $('#console').jqconsole('', '❯❯❯ ');
 const startPrompt = () => {
     jqconsole.Prompt(true, (input) => {
+        // TODO: just print if input is empty
         jqconsole.Write(eval_line(input) + '\n', 'jqconsole-output');
         startPrompt();
     })

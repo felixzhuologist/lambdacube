@@ -143,7 +143,9 @@ pub fn typecheck(
                 Err(TypeError::ExpectedSome)
             }
         }
-        Term::InfAbs(_, _) => Err(TypeError::Unsupported),
+        Term::InfAbs(_, _) | Term::BoundedTyAbs(_, _, _) => {
+            Err(TypeError::Unsupported)
+        }
     }
 }
 
@@ -243,6 +245,7 @@ mod tests {
         assert_eq!(
             result,
             "(∃Counter. new: Counter, get: (Counter -> Int), \
-            inc: (Counter -> Counter) -> Int)");
+             inc: (Counter -> Counter) -> Int)"
+        );
     }
 }
