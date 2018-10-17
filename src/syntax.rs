@@ -148,8 +148,10 @@ impl Type {
     /// Return the least nonvariable supertype of self
     pub fn expose(&self, ctx: &TypeContext) -> Result<Type, String> {
         if let Type::Var(ref s) = self {
-            let promoted = ctx.lookup(s).ok_or(s.clone())?;
-            promoted.expose(ctx)
+            match ctx.lookup(s).ok_or(s.clone())? {
+                Type::Var(ref s2) if s == s2 => Ok(self.clone()),
+                ty => ty.expose(ctx),
+            }
         } else {
             Ok(self.clone())
         }
