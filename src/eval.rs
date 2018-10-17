@@ -28,10 +28,9 @@ pub fn eval_step(
         App(box InfAbs(argname, box body), box arg) if arg.is_reduced() => {
             Ok(body.clone().applysubst(&argname, arg))
         }
-        TyApp(box TyAbs(_argname, box body), box _arg) => {
-            // TODO: does eval care about the type substitution?
-            Ok(body.clone())
-        }
+        // TODO: does eval care about the type substitution?
+        TyApp(box BoundedTyAbs(_, box body, _), _)
+        | TyApp(box TyAbs(_, box body), _) => Ok(body.clone()),
         App(func, box arg) if func.is_val() => {
             Ok(App(func.clone(), Box::new(eval_step(arg, context)?)))
         }
@@ -222,6 +221,13 @@ mod tests {
         assert_eq!(eval_code("fun[X] (x: X) -> x"), "<fun>");
         assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
         assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
+        assert_eq!(
+            eval_code(
+                "let f = fun[X <: {a: Int}] (x: X) -> {a=x, b=(x.a + 1)} \
+                 in f[{a: Int, b: Int}]"
+            ),
+            "<fun>"
+        );
 
         let pack = "module ops
                 type Int

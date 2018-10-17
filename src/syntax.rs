@@ -131,6 +131,8 @@ pub enum Type {
     Arr(Box<Type>, Box<Type>),
     Record(AssocList<String, Box<Type>>),
     Var(String),
+    // TODO: is this extra variant necessary?
+    BoundedVar(String, Box<Type>),
     All(String, Box<Type>),
     // This could encompass the All type by putting Top as the second type argument
     // but with the way Terms and Types are shared across all typecheckers it
@@ -140,6 +142,18 @@ pub enum Type {
     // currently it's only possible to instantiate a Type::Some with a Record type
     // anyways so use an AssocList directly
     Some(String, AssocList<String, Box<Type>>),
+}
+
+impl Type {
+    /// Return the least nonvariable supertype of self
+    pub fn expose(&self, ctx: &TypeContext) -> Result<Type, String> {
+        if let Type::Var(ref s) = self {
+            let promoted = ctx.lookup(s).ok_or(s.clone())?;
+            promoted.expose(ctx)
+        } else {
+            Ok(self.clone())
+        }
+    }
 }
 
 pub trait Resolvable {
@@ -154,7 +168,7 @@ impl Resolvable for Type {
     fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
         use self::Type::*;
         match self {
-            t @ Bool | t @ Int => Ok(t.clone()),
+            t @ Bool | t @ Int | t @ BoundedVar(_, _) => Ok(t.clone()),
             Arr(ref from, ref to) => Ok(Arr(
                 Box::new(from.resolve(ctx)?),
                 Box::new(to.resolve(ctx)?),
@@ -182,10 +196,10 @@ impl fmt::Display for Type {
             // TODO: parenthesize
             Type::Arr(ref from, ref to) => write!(f, "({} -> {})", from, to),
             Type::Record(ref rec) => write!(f, "{{{}}}", rec),
-            Type::Var(ref s) => write!(f, "{}", s),
+            Type::BoundedVar(ref s, _) | Type::Var(ref s) => write!(f, "{}", s),
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
             Type::BoundedAll(ref s, ref ty, ref bound) => {
-                write!(f, "∀{}<:{}. {}", s, bound, ty)
+                write!(f, "∀{} <: {}. {}", s, bound, ty)
             }
             Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
         }
@@ -272,7 +286,9 @@ impl Substitutable<Term> for Term {
 
 impl Substitutable<Type> for Type {
     fn applysubst(self, varname: &str, var: &Type) -> Type {
-        use self::Type::{All, Arr, Bool, BoundedAll, Int, Record, Var};
+        use self::Type::{
+            All, Arr, Bool, BoundedAll, BoundedVar, Int, Record, Var,
+        };
         match self {
             t @ Bool | t @ Int => t,
             Arr(box from, box to) => Arr(
@@ -284,6 +300,11 @@ impl Substitutable<Type> for Type {
                 var.clone()
             } else {
                 Var(s)
+            },
+            BoundedVar(s, bound) => if s == varname {
+                var.clone()
+            } else {
+                BoundedVar(s, bound)
             },
             All(param, box body) => if param != varname {
                 All(param, Box::new(body.applysubst(varname, var)))

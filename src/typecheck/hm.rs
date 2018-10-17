@@ -188,10 +188,8 @@ fn tysubst(s: &str, tyout: &Type, tyin: Type) -> Type {
         } else {
             Type::Var(name)
         },
-        // these types don't exist in HM and this function isn't used elsewhere
-        Type::Some(_, _) | Type::All(_, _) | Type::BoundedAll(_, _, _) => {
-            unimplemented!()
-        }
+        // other types don't exist in HM and this function isn't used elsewhere
+        _ => unimplemented!(),
     }
 }
 
@@ -202,10 +200,8 @@ pub fn occursin(s: &str, ty: &Type) -> bool {
         Type::Arr(ref l, ref r) => occursin(&s, l) || occursin(&s, r),
         Type::Record(_fields) => unimplemented!(),
         Type::Var(name) => name == s,
-        // these types don't exist in HM and this function isn't used elsewhere
-        Type::Some(_, _) | Type::All(_, _) | Type::BoundedAll(_, _, _) => {
-            unimplemented!()
-        }
+        // other types don't exist in HM and this function isn't used elsewhere
+        _ => unimplemented!(),
     }
 }
 

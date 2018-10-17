@@ -39,21 +39,27 @@ pub fn typecheck(
             _ => Err(TypeError::FuncApp),
         },
         Term::Arith(box left, op, box right) => {
-            match (typecheck(left, context)?, typecheck(right, context)?) {
-                (Type::Int, Type::Int) => Ok(op.return_type()),
-                (l, r) => Err(TypeError::Arith(*op, l, r)),
+            let l = typecheck(left, context)?;
+            let r = typecheck(right, context)?;
+            if is_subtype(&l, &Type::Int) && is_subtype(&r, &Type::Int) {
+                Ok(op.return_type())
+            } else {
+                Err(TypeError::Arith(*op, l, r))
             }
         }
         Term::Logic(box left, op, box right) => {
-            match (typecheck(left, context)?, typecheck(right, context)?) {
-                (Type::Bool, Type::Bool) => Ok(Type::Bool),
-                (l, r) => Err(TypeError::Logic(*op, l, r)),
+            let l = typecheck(left, context)?;
+            let r = typecheck(right, context)?;
+            if is_subtype(&l, &Type::Bool) && is_subtype(&r, &Type::Bool) {
+                Ok(Type::Bool)
+            } else {
+                Err(TypeError::Logic(*op, l, r))
             }
         }
         Term::If(box cond, box if_, box else_) => {
             let left = typecheck(if_, context)?;
             let right = typecheck(else_, context)?;
-            if typecheck(cond, context)? != Type::Bool {
+            if !is_subtype(&typecheck(cond, context)?, &Type::Bool) {
                 Err(TypeError::IfElseCond)
             } else if left != right {
                 Err(TypeError::IfElseArms(left, right))
@@ -103,6 +109,8 @@ pub fn is_subtype(left: &Type, right: &Type) -> bool {
         (Type::Arr(in1, out1), Type::Arr(in2, out2)) => {
             is_subtype(in2, in1) && is_subtype(out1, out2)
         }
+        (Type::BoundedVar(_, box Type::Int), Type::Int)
+        | (Type::BoundedVar(_, box Type::Bool), Type::Bool) => true,
         _ => false,
     }
 }

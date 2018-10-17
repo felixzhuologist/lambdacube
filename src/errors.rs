@@ -26,6 +26,7 @@ pub enum TypeError {
     NegateNonBool,
     NameError(String),
     ArgMismatch(Type, Type),
+    BoundArgMismatch(Type, Type),
     FuncApp,
     TyFuncApp,
     Arith(ArithOp, Type, Type),
@@ -57,7 +58,12 @@ impl fmt::Display for TypeError {
             }
             TypeError::ArgMismatch(ref expected, ref actual) => write!(
                 f,
-                "Expected argument of type {} got but {} instead",
+                "Expected argument of type {} but got {} instead",
+                expected, actual
+            ),
+            TypeError::BoundArgMismatch(ref expected, ref actual) => write!(
+                f,
+                "Expected subtype of {} but got {}",
                 expected, actual
             ),
             TypeError::FuncApp => write!(f, "Tried to apply non function type"),

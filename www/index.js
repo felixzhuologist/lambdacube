@@ -31,9 +31,8 @@ const features = [
 // together. e.g. [true, false, true] means that feature 1 and 3 can be used
 // together
 const combinations = [
-    [true, false, false, false, false, false],
+    [true, false, true, false, false, false],
     [false, true, false, false, false, false],
-    [false, false, true, false, false, false],
 ];
 
 const updateOptions = () => {

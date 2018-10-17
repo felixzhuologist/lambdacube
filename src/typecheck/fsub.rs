@@ -3,6 +3,7 @@
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
 use syntax::{Resolvable, Substitutable, Term, Type};
+use typecheck::sub::is_subtype;
 
 pub fn typecheck(
     term: &Term,
@@ -39,35 +40,74 @@ pub fn typecheck(
             context.pop();
             result
         }
+        Term::BoundedTyAbs(param, box body, box bound) => {
+            let bound = bound
+                .resolve(context)
+                .map_err(|s| TypeError::NameError(s))?;
+            context.push(
+                param.clone(),
+                Type::BoundedVar(param.clone(), Box::new(bound.clone())),
+            );
+            let result = Ok(Type::BoundedAll(
+                param.clone(),
+                Box::new(typecheck(body, context)?),
+                Box::new(bound),
+            ));
+            context.pop();
+            result
+        }
         Term::App(box func, box val) => match typecheck(func, context)? {
             Type::Arr(box in_type, box out_type) => {
                 match typecheck(val, context)? {
-                    ref t if *t == in_type => Ok(out_type.clone()),
+                    ref t if is_subtype(t, &in_type) => Ok(out_type.clone()),
                     t => Err(TypeError::ArgMismatch(in_type, t)),
                 }
             }
             _ => Err(TypeError::FuncApp),
         },
-        Term::TyApp(box func, box ty) => match typecheck(func, context)? {
-            Type::All(s, box body) => Ok(body.clone().applysubst(&s, ty)),
-            _ => Err(TypeError::TyFuncApp),
-        },
+        Term::TyApp(box func, box argty) => {
+            let functy = typecheck(func, context).and_then(|ty| {
+                ty.expose(context).map_err(|s| TypeError::NameError(s))
+            })?;
+            match functy {
+                Type::All(s, box body) => {
+                    Ok(body.clone().applysubst(&s, argty))
+                }
+                Type::BoundedAll(s, box body, box bound) => {
+                    if !is_subtype(argty, &bound) {
+                        Err(TypeError::BoundArgMismatch(
+                            bound.clone(),
+                            argty.clone(),
+                        ))
+                    } else {
+                        Ok(body.clone().applysubst(&s, argty))
+                    }
+                }
+                _ => Err(TypeError::TyFuncApp),
+            }
+        }
         Term::Arith(box left, op, box right) => {
-            match (typecheck(left, context)?, typecheck(right, context)?) {
-                (Type::Int, Type::Int) => Ok(op.return_type()),
-                (l, r) => Err(TypeError::Arith(*op, l, r)),
+            let l = typecheck(left, context)?;
+            let r = typecheck(right, context)?;
+            if is_subtype(&l, &Type::Int) && is_subtype(&r, &Type::Int) {
+                Ok(op.return_type())
+            } else {
+                Err(TypeError::Arith(*op, l, r))
             }
         }
         Term::Logic(box left, op, box right) => {
-            match (typecheck(left, context)?, typecheck(right, context)?) {
-                (Type::Bool, Type::Bool) => Ok(Type::Bool),
-                (l, r) => Err(TypeError::Logic(*op, l, r)),
+            let l = typecheck(left, context)?;
+            let r = typecheck(right, context)?;
+            if is_subtype(&l, &Type::Bool) && is_subtype(&r, &Type::Bool) {
+                Ok(Type::Bool)
+            } else {
+                Err(TypeError::Logic(*op, l, r))
             }
         }
         Term::If(box cond, box if_, box else_) => {
             let left = typecheck(if_, context)?;
             let right = typecheck(else_, context)?;
-            if typecheck(cond, context)? != Type::Bool {
+            if !is_subtype(&typecheck(cond, context)?, &Type::Bool) {
                 Err(TypeError::IfElseCond)
             } else if left != right {
                 Err(TypeError::IfElseArms(left, right))
@@ -91,15 +131,15 @@ pub fn typecheck(
         }
         Term::Proj(box term, key) => match typecheck(term, context)? {
             // TODO: maybe for modules we should have a different err message
-            Type::Some(_, fields) | Type::Record(fields) => fields
+            Type::Some(_, fields)
+            | Type::Record(fields)
+            | Type::BoundedVar(_, box Type::Record(fields)) => fields
                 .lookup(&key)
                 .map(|t| *t)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::Pack(box witness, impls, box ty) => {
-            // expose first since we can't apply substituion or try resolving
-            // the type until we know it's a Type::Some
             let ty = ty.expose(context).map_err(|s| TypeError::NameError(s))?;
             if let Type::Some(name, sigs) = ty {
                 let mut expected = sigs
@@ -144,9 +184,7 @@ pub fn typecheck(
                 Err(TypeError::ExpectedSome)
             }
         }
-        Term::InfAbs(_, _) | Term::BoundedTyAbs(_, _, _) => {
-            Err(TypeError::Unsupported)
-        }
+        Term::InfAbs(_, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -186,54 +224,43 @@ mod tests {
     }
 
     #[test]
-    fn e2e_exis() {
-        let module = "
-            module sig
-                type Counter
-                val new : Counter
-                val get : Counter -> Int
-                val inc : Counter -> Counter
-            end";
+    fn e2e_bound_univ() {
+        assert_eq!(
+            typecheck_code("fun[X <: Int] (x: X) -> x"),
+            "∀X <: Int. (X -> X)"
+        );
 
-        let pack = format!(
-            "module ops
-                type Int
-                val new = 1
-                val get = fun (x: Int) -> x
-                val inc = fun (x: Int) -> x + 1
-            end as {}",
-            module
+        assert_eq!(
+            typecheck_code(
+                "fun[X <: Int, Y <: Bool] (f: X -> Y) (x: X) -> f x"
+            ),
+            "∀X <: Int. ∀Y <: Bool. ((X -> Y) -> (X -> Y))"
+        );
+
+        assert_eq!(
+            typecheck_code("fun[X <: Int] (x: X) -> x + 1"),
+            "∀X <: Int. (X -> Int)"
         );
         assert_eq!(
-            typecheck_code(&pack),
-            "∃Counter. new: Counter, get: (Counter -> Int), \
-             inc: (Counter -> Counter)"
+            typecheck_code("fun[X <: {a: Int}] (x: X) -> {a=x.a, b=x}"),
+            "∀X <: {a: Int}. (X -> {a: Int, b: X})"
         );
 
-        let open_use_term = format!(
-            "open {} as counter: Counter in counter.get (counter.inc counter.new)",
-            pack);
-        assert_eq!(typecheck_code(&open_use_term), "Int");
-
-        let open_use_ty = format!(
-            "open {} as counter: Counter in fun (c: Counter) -> counter.get c",
-            pack
-        );
-        assert_eq!(typecheck_code(&open_use_ty), "(Counter -> Int)");
-
-        let modty = grammar::TypeParser::new().parse(module).unwrap();
-        let mut ctx = Context::empty();
-        ctx.push(String::from("CounterADT"), *modty);
-        let ast = grammar::TermParser::new()
-            .parse("fun (c: CounterADT) -> c.get (c.inc c.new)")
-            .unwrap();
-        let result = typecheck(&ast, &mut ctx)
-            .map(|ty| ty.to_string())
-            .unwrap_or_else(|err| err.to_string());
         assert_eq!(
-            result,
-            "(∃Counter. new: Counter, get: (Counter -> Int), \
-             inc: (Counter -> Counter) -> Int)"
+            typecheck_code("let f = fun[X <: Int] (x: X) -> x in f[Int] 0"),
+            "Int"
+        );
+        assert_eq!(
+            typecheck_code(
+                "let f = fun[X <: {a: Int}] (x: X) -> x in f[Int] 0"
+            ),
+            "Expected subtype of {a: Int} but got Int"
+        );
+        assert_eq!(
+            typecheck_code(
+                "let f = fun[X <: {a: Int}] (x: X) -> {a=x.a, b=x} in \
+                f[{a: Int, b: Bool}] {a=1, b=false}"),
+            "{a: Int, b: {a: Int, b: Bool}}"
         );
     }
 }
