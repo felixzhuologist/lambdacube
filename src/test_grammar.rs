@@ -87,6 +87,9 @@ pub mod tests {
                 ("b".into(), Box::new(Type::Bool)),
             ])))
         );
+
+        assert!(grammar::TypeParser::new().parse("tyfun (X: * -> *) -> X -> X").is_ok());
+        assert!(grammar::TypeParser::new().parse("(tyfun (X: *) -> X) Int").is_ok());
     }
 
     #[test]
@@ -175,7 +178,7 @@ pub mod tests {
             val new = 1
             val get = fun (x: Int) -> x
             val inc = fun (x: Int) -> x + 1
-        end as CounterADT";
+        end as (CounterADT)";
         assert!(grammar::TermParser::new().parse(pack).is_ok());
 
         let pack_binder = "let counterADT = module ops
@@ -183,7 +186,7 @@ pub mod tests {
             val new = 1
             val get = fun (x: Int) -> x
             val inc = fun (x: Int) -> x + 1
-        end as CounterADT";
+        end as (CounterADT)";
         assert!(grammar::BinderParser::new().parse(pack_binder).is_ok());
 
         assert!(grammar::TermParser::new().parse("counterADT").is_ok());
@@ -225,5 +228,13 @@ pub mod tests {
                 .is_ok()
         );
         assert!(grammar::TermParser::new().parse("myfunc[X, Y] x y").is_ok());
+    }
+
+    #[test]
+    fn kinds() {
+        assert!(grammar::KindParser::new().parse("*").is_ok());
+        assert!(grammar::KindParser::new().parse("(*)").is_ok());
+        assert!(grammar::KindParser::new().parse("* -> *").is_ok());
+        assert!(grammar::KindParser::new().parse("* -> (* -> *)").is_ok());
     }
 }

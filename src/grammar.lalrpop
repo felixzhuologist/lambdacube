@@ -1,5 +1,5 @@
 use assoclist::{AssocList};
-use syntax::{ArithOp, BoolOp, Term, Type, Command, Binder};
+use syntax::{ArithOp, BoolOp, Term, Type, Kind, Command, Binder};
 
 use std::str::FromStr;
 
@@ -99,7 +99,8 @@ ATerm: Box<Term> = {
     "(" <Term> ")",
     "{" <CommaSep<RecordField>> "}" =>
         Box::new(Term::Record(AssocList::from_vec(<>))),
-    "module" "ops" "type" <ty:Type> <impls:("val" <RecordField>)+> "end" "as" <asc:Type> =>
+    // TODO: is there a way to not have parentheses w/o shift/reduce conflicts
+    "module" "ops" "type" <ty:Type> <impls:("val" <RecordField>)+> "end" "as" "(" <asc:Type> ")" =>
         Box::new(Term::Pack(ty, AssocList::from_vec(impls), asc)),
 }
 
@@ -153,8 +154,23 @@ FuncDef = {
 }
 
 pub Type: Box<Type> = {
-    <AType>,
-    <AType> "->" <Type> => Box::new(Type::Arr(<>)),
+    ArrowType,
+    "tyfun" <p:KindParams> "->" <ty:Type> =>
+        Box::new(p
+            .into_iter()
+            .rev()
+            .fold(*ty, |func, (arg, kind)| Type::TyAbs(arg, *kind, Box::new(func)))
+        ),
+}
+
+ArrowType: Box<Type> = {
+    <AppType> "->" <ArrowType> => Box::new(Type::Arr(<>)),
+    AppType,
+}
+
+AppType: Box<Type> = {
+    AppType AType => Box::new(Type::TyApp(<>)),
+    AType
 }
 
 // TODO: parse missing types like polymorphic functions
@@ -171,6 +187,20 @@ AType: Box<Type> = {
 
 RecordFieldType: (String, Box<Type>) = {
     <Ident> ":" <Type> => (<>)
+}
+
+KindParams: Vec<(String, Box<Kind>)> = {
+    <("(" <TyIdent> ":" <Kind> ")")+>
+}
+
+pub Kind: Box<Kind> = {
+    <AKind> "->" <Kind> => Box::new(Kind::Arr(<>)),
+    <AKind>,
+}
+
+AKind: Box<Kind> = {
+    "*" => Box::new(Kind::Proper),
+    "(" <Kind> ")",
 }
 
 NECommaSep<T>: Vec<T> = {

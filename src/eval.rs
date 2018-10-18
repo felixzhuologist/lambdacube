@@ -235,12 +235,12 @@ mod tests {
                 val get = fun (x: Int) -> x
                 val inc = fun (x: Int) -> x + 1
             end as 
-            module sig
+            (module sig
                 type Counter
                 val new : Counter
                 val get : Counter -> Int
                 val inc : Counter -> Counter
-            end";
+            end)";
         assert_eq!(eval_code(pack), "<mod>");
 
         let open_use_term = format!(

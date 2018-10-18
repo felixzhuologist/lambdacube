@@ -1,4 +1,5 @@
 //! Universal Types
+// TODO: bounded existentials
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;

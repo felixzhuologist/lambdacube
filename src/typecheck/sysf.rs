@@ -1,4 +1,6 @@
 //! Universal Types
+// TODO: hide opened module types (right now they get resolved to the concrete
+// type)
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
@@ -201,7 +203,7 @@ mod tests {
                 val new = 1
                 val get = fun (x: Int) -> x
                 val inc = fun (x: Int) -> x + 1
-            end as {}",
+            end as ({})",
             module
         );
         assert_eq!(

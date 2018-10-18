@@ -142,6 +142,8 @@ pub enum Type {
     // currently it's only possible to instantiate a Type::Some with a Record type
     // anyways so use an AssocList directly
     Some(String, AssocList<String, Box<Type>>),
+    TyAbs(String, Kind, Box<Type>),
+    TyApp(Box<Type>, Box<Type>),
 }
 
 impl Type {
@@ -186,6 +188,16 @@ impl Resolvable for Type {
                 Box::new(bound.resolve(ctx)?),
             )),
             Some(ref s, ref sigs) => Ok(Some(s.clone(), sigs.resolve(ctx)?)),
+            TyAbs(ref arg, kind, box body) => Ok(TyAbs(
+                arg.clone(),
+                kind.clone(),
+                // TODO: we don't expect arg to be defined here...
+                Box::new(body.resolve(ctx)?),
+            )),
+            TyApp(box func, box arg) => Ok(TyApp(
+                Box::new(func.resolve(ctx)?),
+                Box::new(arg.resolve(ctx)?)
+            )),
         }
     }
 }
@@ -204,6 +216,8 @@ impl fmt::Display for Type {
                 write!(f, "∀{} <: {}. {}", s, bound, ty)
             }
             Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
+            Type::TyAbs(_, _, _) => write!(f, "<tyfun>"),
+            Type::TyApp(ref func, ref arg) => write!(f, "{} {}", func, arg),
         }
     }
 }
@@ -288,9 +302,7 @@ impl Substitutable<Term> for Term {
 
 impl Substitutable<Type> for Type {
     fn applysubst(self, varname: &str, var: &Type) -> Type {
-        use self::Type::{
-            All, Arr, Bool, BoundedAll, BoundedVar, Int, Record, Var,
-        };
+        use self::Type::*;
         match self {
             t @ Bool | t @ Int => t,
             Arr(box from, box to) => Arr(
@@ -327,6 +339,31 @@ impl Substitutable<Type> for Type {
             } else {
                 Type::Some(param, sigs)
             },
+            TyAbs(param, kind, box body) => if param != varname {
+                TyAbs(param, kind, Box::new(body))
+            } else {
+                TyAbs(param, kind, Box::new(body.applysubst(varname, var)))
+            },
+            TyApp(box func, box val) => TyApp(
+                Box::new(func.applysubst(varname, var)),
+                Box::new(val.applysubst(varname, var)),
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Proper,
+    Arr(Box<Kind>, Box<Kind>)
+}
+
+impl fmt::Display for Kind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Kind::Proper => write!(f, "*"),
+            // TODO: parenthesize
+            Kind::Arr(ref l, ref r) => write!(f, "({} -> {})", l, r),
         }
     }
 }
