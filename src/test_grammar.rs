@@ -88,8 +88,26 @@ pub mod tests {
             ])))
         );
 
-        assert!(grammar::TypeParser::new().parse("tyfun (X: * -> *) -> X -> X").is_ok());
-        assert!(grammar::TypeParser::new().parse("(tyfun (X: *) -> X) Int").is_ok());
+        assert!(
+            grammar::TypeParser::new()
+                .parse("forall X . (X -> X)")
+                .is_ok()
+        );
+        assert!(
+            grammar::TypeParser::new()
+                .parse("tyfun (X: * -> *) => X -> X")
+                .is_ok()
+        );
+        assert!(
+            grammar::TypeParser::new()
+                .parse("(tyfun (X: *) => X) Int")
+                .is_ok()
+        );
+        assert!(
+            grammar::TypeParser::new()
+                .parse("tyfun (A: *) (B: *) => forall X . (A -> B -> X) -> X")
+                .is_ok()
+        );
     }
 
     #[test]

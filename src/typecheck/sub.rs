@@ -185,12 +185,12 @@ mod tests {
         let poly1 = Type::BoundedAll(
             String::from("X"),
             Box::new(big_rec.clone()),
-            Box::new(Type::Int)
+            Box::new(Type::Int),
         );
         let poly2 = Type::BoundedAll(
             String::from("X"),
             Box::new(small_rec.clone()),
-            Box::new(Type::Int)
+            Box::new(Type::Int),
         );
         assert!(is_subtype(&poly1, &poly2, &mut ctx));
     }

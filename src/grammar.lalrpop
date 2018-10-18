@@ -155,7 +155,14 @@ FuncDef = {
 
 pub Type: Box<Type> = {
     ArrowType,
-    "tyfun" <p:KindParams> "->" <ty:Type> =>
+    // we assume parameters here are of kind *. would it be valid otherwise?
+    Forall <p:(<TyIdent>)+> "." <ty:Type> =>
+        Box::new(p
+            .into_iter()
+            .rev()
+            .fold(*ty, |func, arg| Type::All(arg, Box::new(func)))
+        ),
+    "tyfun" <p:KindParams> "=>" <ty:Type> =>
         Box::new(p
             .into_iter()
             .rev()
@@ -173,7 +180,6 @@ AppType: Box<Type> = {
     AType
 }
 
-// TODO: parse missing types like polymorphic functions
 AType: Box<Type> = {
     "(" <Type> ")",
     "{" <CommaSep<RecordFieldType>> "}" =>
@@ -201,6 +207,12 @@ pub Kind: Box<Kind> = {
 AKind: Box<Kind> = {
     "*" => Box::new(Kind::Proper),
     "(" <Kind> ")",
+}
+
+Forall = {
+    "∀",
+    "forall",
+    "poly",
 }
 
 NECommaSep<T>: Vec<T> = {

@@ -196,7 +196,7 @@ impl Resolvable for Type {
             )),
             TyApp(box func, box arg) => Ok(TyApp(
                 Box::new(func.resolve(ctx)?),
-                Box::new(arg.resolve(ctx)?)
+                Box::new(arg.resolve(ctx)?),
             )),
         }
     }
@@ -355,7 +355,7 @@ impl Substitutable<Type> for Type {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Kind {
     Proper,
-    Arr(Box<Kind>, Box<Kind>)
+    Arr(Box<Kind>, Box<Kind>),
 }
 
 impl fmt::Display for Kind {
