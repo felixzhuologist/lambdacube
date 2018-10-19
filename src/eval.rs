@@ -1,10 +1,10 @@
-use assoclist::{AssocList, TermContext as Context};
-use errors::EvalError;
+use assoclist::{AssocList, TermContext, TypeContext};
+use errors::{EvalError, TypeError};
 use syntax::Term::*;
-use syntax::{ArithOp, BoolOp, Substitutable, Term};
+use syntax::{ArithOp, BoolOp, Substitutable, Term, Type};
 
 /// call eval step on a term until it is stuck
-pub fn eval_ast(term: &Term, ctx: &mut Context) -> Result<Term, EvalError> {
+pub fn eval_ast(term: &Term, ctx: &mut TermContext) -> Result<Term, EvalError> {
     let mut current = term.clone();
     loop {
         let next = eval_step(&current, ctx)?;
@@ -17,7 +17,7 @@ pub fn eval_ast(term: &Term, ctx: &mut Context) -> Result<Term, EvalError> {
 
 pub fn eval_step(
     term: &Term,
-    context: &mut Context,
+    context: &mut TermContext,
 ) -> Result<Term, EvalError> {
     match term {
         Not(box Bool(b)) => Ok(Bool(!b)),
@@ -149,23 +149,83 @@ pub fn eval_step(
     }
 }
 
+// use big step semantics since evaluation of types is much simpler
+pub fn eval_ty(ty: &Type, ctx: &mut TypeContext) -> Result<Type, TypeError> {
+    match ty {
+        t @ Type::Bool | t @ Type::Int | t @ Type::TyAbs(_, _, _) => Ok(t.clone()),
+        Type::Var(s) | Type::BoundedVar(s, _) => {
+            ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
+        }
+        Type::Arr(ref from, ref to) => Ok(Type::Arr(
+            Box::new(eval_ty(from, ctx)?),
+            Box::new(eval_ty(to, ctx)?),
+        )),
+        Type::Record(fields) => {
+            // TODO: use map + collect
+            let mut new_fields = Vec::new();
+            for (key, ref ty) in fields.inner.iter() {
+                new_fields.push((key.clone(), Box::new(eval_ty(ty, ctx)?)))
+            }
+            Ok(Type::Record(AssocList::from_vec(new_fields)))
+        }
+        Type::All(s, ref ty) => {
+            ctx.push(s.clone(), Type::Var(s.clone()));
+            let result = Ok(Type::All(s.clone(), Box::new(eval_ty(ty, ctx)?)));
+            ctx.pop();
+            result
+        }
+        Type::BoundedAll(s, ref ty, ref bound) => {
+            ctx.push(s.clone(), Type::Var(s.clone()));
+            let result = Ok(Type::BoundedAll(
+                s.clone(),
+                Box::new(eval_ty(ty, ctx)?),
+                Box::new(eval_ty(bound, ctx)?)));
+            ctx.pop();
+            result
+        }
+        Type::Some(s, sigs) => {
+            ctx.push(s.clone(), Type::Var(s.clone()));
+            // TODO: code reuse
+            let mut new_sigs = Vec::new();
+            for (key, ref ty) in sigs.inner.iter() {
+                new_sigs.push((key.clone(), Box::new(eval_ty(ty, ctx)?)))
+            }
+            ctx.pop();
+            Ok(Type::Some(s.clone(), AssocList::from_vec(new_sigs)))
+        }
+        Type::TyApp(ref func, ref arg) => match eval_ty(func, ctx)? {
+            Type::TyAbs(argname, _, box body) => {
+                Ok(body.applysubst(&argname, &eval_ty(arg, ctx)?))
+            }
+            _ => panic!("kindchecking should catch this"),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assoclist::{TermContext, TypeContext};
 
-    fn eval_code(code: &str) -> String {
-        match eval_ast(
+    fn eval_term(code: &str) -> String {
+        eval_ast(
             &::grammar::TermParser::new().parse(code).unwrap(),
-            &mut Context::empty(),
-        ) {
-            Ok(ast) => ast.to_string(),
-            Err(err) => err.to_string(),
-        }
+            &mut TermContext::empty(),
+        ).map(|ty| ty.to_string())
+        .unwrap_or_else(|err| err.to_string())
+    }
+
+    fn eval_ty_e2e(code: &str) -> String {
+        eval_ty(
+            &::grammar::TypeParser::new().parse(code).unwrap(),
+            &mut TypeContext::empty(),
+        ).map(|ty| ty.to_string())
+        .unwrap_or_else(|err| err.to_string())
     }
 
     #[test]
     fn check_eval_base() {
-        let mut context = Context::empty();
+        let mut context = TermContext::empty();
         assert_eq!(eval_step(&Int(3), &mut context).unwrap(), Int(3));
 
         context.push("x".to_string(), Int(3));
@@ -180,26 +240,26 @@ mod tests {
         assert_eq!(
             eval_ast(
                 &If(Box::new(Bool(true)), Box::new(Int(3)), Box::new(Int(5))),
-                &mut Context::empty()
+                &mut TermContext::empty()
             ).unwrap(),
             Int(3)
         )
     }
 
     #[test]
-    fn e2e_eval() {
-        assert_eq!(eval_code("if (3 % 2) == 1 then 10 else 2"), "10");
-        assert_eq!(eval_code("1 + 2 + 3 + 4"), "10");
-        assert_eq!(eval_code("(fun (x: Int) -> x*4 + 3) 3"), "15");
-        assert_eq!(eval_code("let x = 5 in x"), "5");
-        assert_eq!(eval_code("{a=1, b=2}"), "{a=1, b=2}");
-        assert_eq!(eval_code("{a=2}.a"), "2");
+    fn e2e_eval_term() {
+        assert_eq!(eval_term("if (3 % 2) == 1 then 10 else 2"), "10");
+        assert_eq!(eval_term("1 + 2 + 3 + 4"), "10");
+        assert_eq!(eval_term("(fun (x: Int) -> x*4 + 3) 3"), "15");
+        assert_eq!(eval_term("let x = 5 in x"), "5");
+        assert_eq!(eval_term("{a=1, b=2}"), "{a=1, b=2}");
+        assert_eq!(eval_term("{a=2}.a"), "2");
         assert_eq!(
-            eval_code("{a=2}.b"),
+            eval_term("{a=2}.b"),
             "eval error: key b does not exist in record"
         );
         assert_eq!(
-            eval_code(
+            eval_term(
                 "let twice = fun (f: Int -> Int) -> f (f 0) in
                  let addone = fun (x: Int) -> x + 1 in
                  twice addone"
@@ -207,7 +267,7 @@ mod tests {
             "2"
         );
         assert_eq!(
-            eval_code(
+            eval_term(
                 "let double = fun f a -> f (f a) in
                  let addone = fun x -> x + 1 in
                  let negate = fun b -> not b in
@@ -217,12 +277,12 @@ mod tests {
             ),
             "{b=true, i=2}"
         );
-        assert_eq!(eval_code("(fun b -> not b) true"), "false");
-        assert_eq!(eval_code("fun[X] (x: X) -> x"), "<fun>");
-        assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
-        assert_eq!(eval_code("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
+        assert_eq!(eval_term("(fun b -> not b) true"), "false");
+        assert_eq!(eval_term("fun[X] (x: X) -> x"), "<fun>");
+        assert_eq!(eval_term("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
+        assert_eq!(eval_term("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
         assert_eq!(
-            eval_code(
+            eval_term(
                 "let f = fun[X <: {a: Int}] (x: X) -> {a=x, b=(x.a + 1)} \
                  in f[{a: Int, b: Int}]"
             ),
@@ -241,17 +301,24 @@ mod tests {
                 val get : Counter -> Int
                 val inc : Counter -> Counter
             end)";
-        assert_eq!(eval_code(pack), "<mod>");
+        assert_eq!(eval_term(pack), "<mod>");
 
         let open_use_term = format!(
             "open {} as counter: Counter in counter.get (counter.inc counter.new)",
             pack);
-        assert_eq!(eval_code(&open_use_term), "2");
+        assert_eq!(eval_term(&open_use_term), "2");
 
         let open_use_ty = format!(
             "open {} as counter: Counter in fun (c: Counter) -> counter.get c",
             pack
         );
-        assert_eq!(eval_code(&open_use_ty), "<fun>");
+        assert_eq!(eval_term(&open_use_ty), "<fun>");
+    }
+
+    #[test]
+    fn e2e_eval_ty() {
+        assert_eq!(eval_ty_e2e("forall X . X -> X"), "∀X. (X -> X)");
+        assert_eq!(eval_ty_e2e("tyfun (X: *) => X -> X"), "<tyfun>");
+        assert_eq!(eval_ty_e2e("(tyfun (X: *) => X -> X) Int"), "(Int -> Int)");
     }
 }
