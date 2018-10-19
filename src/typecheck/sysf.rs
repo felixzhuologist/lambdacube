@@ -4,7 +4,8 @@
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::{Resolvable, Substitutable, Term, Type};
+use eval::Eval;
+use syntax::{Substitutable, Term, Type};
 
 pub fn typecheck(
     term: &Term,
@@ -21,9 +22,7 @@ pub fn typecheck(
             context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, box type_, box body) => {
-            let ty = type_
-                .resolve(context)
-                .map_err(|s| TypeError::NameError(s))?;
+            let ty = type_.eval(context)?;
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
@@ -107,8 +106,7 @@ pub fn typecheck(
                 let mut expected = sigs
                     .clone()
                     .applysubst(&name, witness)
-                    .resolve(context)
-                    .map_err(|s| TypeError::NameError(s))?
+                    .eval(context)?
                     .inner;
 
                 // TODO: code reuse
@@ -187,7 +185,7 @@ mod tests {
         );
         assert_eq!(
             typecheck_code("fun (f: forall X . X -> X) -> f[Int] 3"),
-            "<fun>"
+            "(∀X. (X -> X) -> Int)"
         );
     }
 

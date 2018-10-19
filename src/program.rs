@@ -1,5 +1,6 @@
 use assoclist::{TermContext, TypeContext};
 use errors::TypeError;
+use eval::Eval;
 use syntax::{Binder, Command, Term, Type};
 
 type TypeChecker = fn(&Term, &mut TypeContext) -> Result<Type, TypeError>;
@@ -105,7 +106,7 @@ impl Program {
         (self.typecheck)(ast, &mut self.ty_ctx)
             .map_err(|e| e.to_string())
             .and_then(|type_| {
-                ::eval::eval_ast(ast, &mut self.term_ctx)
+                ast.eval(&mut self.term_ctx)
                     .map(|val| (val, type_))
                     .map_err(|e| e.to_string())
             })

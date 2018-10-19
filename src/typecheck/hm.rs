@@ -1,7 +1,8 @@
 //! Implementation of let polymorphism with type inference (Hindley-Milner)
 use assoclist::TypeContext as Context;
 use errors::TypeError;
-use syntax::{Resolvable, Term, Type};
+use eval::Eval;
+use syntax::{Term, Type};
 
 pub type Constraints = Vec<(Type, Type)>;
 
@@ -31,7 +32,7 @@ pub fn get_constraints(
             None => Err(TypeError::NameError(s.to_string())),
         },
         Term::Abs(param, box type_, box body) => {
-            let intype = type_.resolve(context).unwrap_or(type_.clone());
+            let intype = type_.eval(context).unwrap_or(type_.clone());
 
             context.push(param.clone(), intype.clone());
             let (outtype, constr) = get_constraints(body, context)?;

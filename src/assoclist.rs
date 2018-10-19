@@ -1,8 +1,9 @@
 // Bare bones implementation of an association list. We use an assoc list
 // instead of a std::collections::HashMap since currently performance is not a
 // concern and to make the compiled web assembly as small as possible
+use eval::{Eval, EvalStep};
 use std::fmt;
-use syntax::{Kind, Resolvable, Substitutable, Term, Type};
+use syntax::{Kind, Substitutable, Term, Type};
 
 pub type TermContext = AssocList<String, Term>;
 pub type TypeContext = AssocList<String, Type>;
@@ -44,19 +45,6 @@ impl<K: PartialEq, V: Clone> AssocList<K, V> {
     }
 }
 
-impl Resolvable for AssocList<String, Box<Type>> {
-    fn resolve(
-        &self,
-        ctx: &TypeContext,
-    ) -> Result<AssocList<String, Box<Type>>, String> {
-        let mut new_fields = Vec::new();
-        for (key, box val) in self.inner.iter() {
-            new_fields.push((key.clone(), Box::new(val.resolve(ctx)?)))
-        }
-        Ok(AssocList::from_vec(new_fields))
-    }
-}
-
 impl fmt::Display for AssocList<String, Box<Type>> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -82,5 +70,37 @@ impl<T: Clone + Substitutable<T>> Substitutable<T>
                     (field, Box::new(val.applysubst(varname, var)))
                 }).collect(),
         )
+    }
+}
+
+impl<T, Err> Eval<T, Err> for AssocList<String, Box<T>>
+where
+    T: Clone + Eval<T, Err>,
+{
+    fn eval(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
+        let result: Result<Vec<_>, _> = self
+            .inner
+            .iter()
+            .map(|(key, ref val)| {
+                val.eval(ctx).map(|t| (key.clone(), Box::new(t)))
+            }).collect();
+        result.map(|vec| AssocList::from_vec(vec))
+    }
+}
+
+impl<T, Err> EvalStep<T, Err> for AssocList<String, Box<T>>
+where
+    T: Clone + EvalStep<T, Err>,
+{
+    // TODO: should probably step one field at a time instead of stepping them
+    // all forward at once
+    fn eval_step(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
+        let result: Result<Vec<_>, _> = self
+            .inner
+            .iter()
+            .map(|(key, ref val)| {
+                val.eval_step(ctx).map(|t| (key.clone(), Box::new(t)))
+            }).collect();
+        result.map(|vec| AssocList::from_vec(vec))
     }
 }

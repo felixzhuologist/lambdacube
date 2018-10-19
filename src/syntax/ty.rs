@@ -1,8 +1,7 @@
+use std::fmt;
+
 use assoclist::{AssocList, TypeContext};
 use syntax::{Kind, Substitutable};
-
-use std::fmt;
-use std::marker;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
@@ -36,48 +35,6 @@ impl Type {
             }
         } else {
             Ok(self.clone())
-        }
-    }
-}
-
-pub trait Resolvable {
-    /// Tries to resolve all term/type variables inside of itself, erroring if any
-    /// are undefined
-    fn resolve(&self, ctx: &TypeContext) -> Result<Self, String>
-    where
-        Self: marker::Sized;
-}
-
-impl Resolvable for Type {
-    fn resolve(&self, ctx: &TypeContext) -> Result<Type, String> {
-        use self::Type::*;
-        match self {
-            t @ Bool | t @ Int | t @ BoundedVar(_, _) => Ok(t.clone()),
-            Arr(ref from, ref to) => Ok(Arr(
-                Box::new(from.resolve(ctx)?),
-                Box::new(to.resolve(ctx)?),
-            )),
-            Record(ref fields) => Ok(Record(fields.resolve(ctx)?)),
-            Var(ref s) => ctx.lookup(s).ok_or(s.clone()),
-            All(ref s, ref ty) => {
-                Ok(All(s.clone(), Box::new(ty.resolve(ctx)?)))
-            }
-            BoundedAll(ref s, ref ty, ref bound) => Ok(BoundedAll(
-                s.clone(),
-                Box::new(ty.resolve(ctx)?),
-                Box::new(bound.resolve(ctx)?),
-            )),
-            Some(ref s, ref sigs) => Ok(Some(s.clone(), sigs.resolve(ctx)?)),
-            TyAbs(ref arg, kind, box body) => Ok(TyAbs(
-                arg.clone(),
-                kind.clone(),
-                // TODO: we don't expect arg to be defined here...
-                Box::new(body.resolve(ctx)?),
-            )),
-            TyApp(box func, box arg) => Ok(TyApp(
-                Box::new(func.resolve(ctx)?),
-                Box::new(arg.resolve(ctx)?),
-            )),
         }
     }
 }

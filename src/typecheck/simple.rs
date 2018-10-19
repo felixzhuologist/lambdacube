@@ -1,6 +1,7 @@
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::{Resolvable, Term, Type};
+use eval::Eval;
+use syntax::{Term, Type};
 
 pub fn typecheck(
     term: &Term,
@@ -17,9 +18,7 @@ pub fn typecheck(
             context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, box type_, box body) => {
-            let ty = type_
-                .resolve(context)
-                .map_err(|s| TypeError::NameError(s))?;
+            let ty = type_.eval(context)?;
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),

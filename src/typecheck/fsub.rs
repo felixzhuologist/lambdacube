@@ -3,7 +3,8 @@
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use syntax::{Resolvable, Substitutable, Term, Type};
+use eval::Eval;
+use syntax::{Substitutable, Term, Type};
 use typecheck::sub::is_subtype;
 
 pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
@@ -18,7 +19,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, box type_, box body) => {
-            let ty = type_.resolve(ctx).map_err(|s| TypeError::NameError(s))?;
+            let ty = type_.eval(ctx)?;
             ctx.push(param.clone(), ty.clone());
             let result =
                 Ok(Type::Arr(Box::new(ty), Box::new(typecheck(body, ctx)?)));
@@ -33,8 +34,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             result
         }
         Term::BoundedTyAbs(param, box body, box bound) => {
-            let bound =
-                bound.resolve(ctx).map_err(|s| TypeError::NameError(s))?;
+            let bound = bound.eval(ctx)?;
             ctx.push(
                 param.clone(),
                 Type::BoundedVar(param.clone(), Box::new(bound.clone())),
@@ -139,12 +139,8 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         Term::Pack(box witness, impls, box ty) => {
             let ty = ty.expose(ctx).map_err(|s| TypeError::NameError(s))?;
             if let Type::Some(name, sigs) = ty {
-                let mut expected = sigs
-                    .clone()
-                    .applysubst(&name, witness)
-                    .resolve(ctx)
-                    .map_err(|s| TypeError::NameError(s))?
-                    .inner;
+                let mut expected =
+                    sigs.clone().applysubst(&name, witness).eval(ctx)?.inner;
 
                 // TODO: code reuse
                 let mut actual = Vec::new();

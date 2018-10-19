@@ -4,7 +4,7 @@ pub mod ty;
 
 pub use self::kind::Kind;
 pub use self::term::{ArithOp, BoolOp, Term};
-pub use self::ty::{Resolvable, Type};
+pub use self::ty::Type;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
