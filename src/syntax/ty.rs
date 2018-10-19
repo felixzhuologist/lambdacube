@@ -8,7 +8,7 @@ pub enum Type {
     Bool,
     Int,
     Arr(Box<Type>, Box<Type>),
-    Record(AssocList<String, Box<Type>>),
+    Record(AssocList<String, Type>),
     Var(String),
     // TODO: is this extra variant necessary?
     BoundedVar(String, Box<Type>),
@@ -20,7 +20,7 @@ pub enum Type {
     // The second parameter is a general Type in the TAPL implementation but
     // currently it's only possible to instantiate a Type::Some with a Record type
     // anyways so use an AssocList directly
-    Some(String, AssocList<String, Box<Type>>),
+    Some(String, AssocList<String, Type>),
     TyAbs(String, Kind, Box<Type>),
     TyApp(Box<Type>, Box<Type>),
 }

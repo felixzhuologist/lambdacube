@@ -94,7 +94,7 @@ impl Program {
                         self.term_ctx.push(var.clone(), Term::Record(impls));
                         self.ty_ctx.push(var.clone(), ty);
                         // TODO: should this be added to scope?
-                        self.ty_ctx.push(tyvar.clone(), *witness);
+                        self.ty_ctx.push(tyvar.clone(), witness);
                         ()
                     }
                 })

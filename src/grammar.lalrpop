@@ -18,7 +18,7 @@ pub Binder: Binder = {
     "let" <s:Ident> "=" <t:Term> => Binder::VarBind(s, *t),
     "let" <s:Ident> <p:Params> "=" <t:Term> => {
         let func = p.into_iter().rev().fold(*t, |func, next_param| match next_param {
-            (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
+            (arg, Some(ty)) => Term::Abs(arg, *ty, Box::new(func)),
             (arg, None) => Term::InfAbs(arg, Box::new(func))
         });
         Binder::VarBind(s, func)
@@ -38,20 +38,20 @@ pub Term: Box<Term> = {
         Box::new(Term::Unpack(tyv, v, mod_, term)),
     FuncDef <p:Params> "->" <t:Term> => 
         Box::new(p.into_iter().rev().fold(*t, |func, next_param| match next_param {
-            (arg, Some(ty)) => Term::Abs(arg, ty, Box::new(func)),
+            (arg, Some(ty)) => Term::Abs(arg, *ty, Box::new(func)),
             (arg, None) => Term::InfAbs(arg, Box::new(func))
         })),
     FuncDef "[" <univ:NECommaSep<TypeParam>> "]" <p:TypedParams> "->" <body:Term> => {
         let func = p
             .into_iter()
             .rev()
-            .fold(*body, |func, (arg, ty)| Term::Abs(arg, ty, Box::new(func)));
+            .fold(*body, |func, (arg, ty)| Term::Abs(arg, *ty, Box::new(func)));
 
         Box::new(univ
             .into_iter()
             .rev()
             .fold(func, |func, next_| match next_ {
-                (var, Some(bound)) => Term::BoundedTyAbs(var, Box::new(func), bound),
+                (var, Some(bound)) => Term::BoundedTyAbs(var, Box::new(func), *bound),
                 (var, None) => Term::TyAbs(var, Box::new(func)),
             }))
     },
@@ -83,7 +83,7 @@ AppTerm: Box<Term> = {
         Box::new(tys
             .into_iter()
             .rev()
-            .fold(*univ, |acc, ty| Term::TyApp(Box::new(acc), ty))),
+            .fold(*univ, |acc, ty| Term::TyApp(Box::new(acc), *ty))),
     AppTerm FactorOp PathTerm => Box::new(Term::Arith(<>)),
 }
 
@@ -101,11 +101,11 @@ ATerm: Box<Term> = {
         Box::new(Term::Record(AssocList::from_vec(<>))),
     // TODO: is there a way to not have parentheses w/o shift/reduce conflicts
     "module" "ops" "type" <ty:Type> <impls:("val" <RecordField>)+> "end" "as" "(" <asc:Type> ")" =>
-        Box::new(Term::Pack(ty, AssocList::from_vec(impls), asc)),
+        Box::new(Term::Pack(*ty, AssocList::from_vec(impls), *asc)),
 }
 
-RecordField: (String, Box<Term>) = {
-    <Ident> "=" <Term> => (<>)
+RecordField: (String, Term) = {
+    <s:Ident> "=" <t:Term> => (s, *t)
 }
 
 pub TyIdent: String = {
@@ -191,8 +191,8 @@ AType: Box<Type> = {
         Box::new(Type::Some(ty, AssocList::from_vec(sigs))),
 }
 
-RecordFieldType: (String, Box<Type>) = {
-    <Ident> ":" <Type> => (<>)
+RecordFieldType: (String, Type) = {
+    <s:Ident> ":" <t:Type> => (s, *t)
 }
 
 KindParams: Vec<(String, Box<Kind>)> = {

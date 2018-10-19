@@ -18,7 +18,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         Term::Var(s) => {
             ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
-        Term::Abs(param, box type_, box body) => {
+        Term::Abs(param, type_, box body) => {
             let ty = type_.resolve(ctx)?;
             ctx.push(param.clone(), ty.clone());
             let result =
@@ -33,7 +33,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             ctx.pop();
             result
         }
-        Term::BoundedTyAbs(param, box body, box bound) => {
+        Term::BoundedTyAbs(param, box body, bound) => {
             let bound = bound.resolve(ctx)?;
             ctx.push(
                 param.clone(),
@@ -58,7 +58,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
             _ => Err(TypeError::FuncApp),
         },
-        Term::TyApp(box func, box argty) => {
+        Term::TyApp(box func, argty) => {
             let functy = typecheck(func, ctx).and_then(|ty| {
                 ty.expose(ctx).map_err(|s| TypeError::NameError(s))
             })?;
@@ -121,8 +121,8 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         }
         Term::Record(fields) => {
             let mut types = Vec::new();
-            for (key, box val) in fields.inner.iter() {
-                types.push((key.clone(), Box::new(typecheck(val, ctx)?)))
+            for (key, val) in fields.inner.iter() {
+                types.push((key.clone(), typecheck(val, ctx)?))
             }
             Ok(Type::Record(AssocList::from_vec(types)))
         }
@@ -132,11 +132,10 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             | Type::Record(fields)
             | Type::BoundedVar(_, box Type::Record(fields)) => fields
                 .lookup(&key)
-                .map(|t| *t)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::Pack(box witness, impls, box ty) => {
+        Term::Pack(witness, impls, ty) => {
             let ty = ty.expose(ctx).map_err(|s| TypeError::NameError(s))?;
             if let Type::Some(name, sigs) = ty {
                 let mut expected =
@@ -144,8 +143,8 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
 
                 // TODO: code reuse
                 let mut actual = Vec::new();
-                for (name, box val) in impls.inner.iter() {
-                    actual.push((name.clone(), Box::new(typecheck(val, ctx)?)))
+                for (name, val) in impls.inner.iter() {
+                    actual.push((name.clone(), typecheck(val, ctx)?))
                 }
 
                 expected.sort_by_key(|(s, _)| s.clone());

@@ -14,7 +14,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         Term::Var(s) => {
             ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
-        Term::Abs(param, box type_, box body) => {
+        Term::Abs(param, type_, box body) => {
             let ty = type_.resolve(ctx)?;
             ctx.push(param.clone(), ty.clone());
             let result =
@@ -75,16 +75,15 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         }
         Term::Record(fields) => {
             let mut types = Vec::new();
-            for (key, box val) in fields.inner.iter() {
-                types.push((key.clone(), Box::new(typecheck(val, ctx)?)))
+            for (key, val) in fields.inner.iter() {
+                types.push((key.clone(), typecheck(val, ctx)?))
             }
             Ok(Type::Record(AssocList::from_vec(types)))
         }
         Term::Proj(box term, key) => match typecheck(term, ctx)? {
-            Type::Record(fields) => match fields.lookup(&key) {
-                Some(type_) => Ok(*type_),
-                None => Err(TypeError::InvalidKey(key.clone())),
-            },
+            Type::Record(fields) => fields
+                .lookup(&key)
+                .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::TyAbs(_, _)
@@ -157,22 +156,22 @@ mod tests {
         // width subtyping
         let small_rec = Type::Record(AssocList::from_vec(vec![(
             "a".to_string(),
-            Box::new(Type::Int),
+            Type::Int,
         )]));
         let big_rec = Type::Record(AssocList::from_vec(vec![
-            ("a".to_string(), Box::new(Type::Int)),
-            ("b".to_string(), Box::new(Type::Bool)),
+            ("a".to_string(), Type::Int),
+            ("b".to_string(), Type::Bool),
         ]));
         assert!(is_subtype(&big_rec, &small_rec, &mut ctx));
 
         // depth subtyping
         let shallow = Type::Record(AssocList::from_vec(vec![(
             "a".to_string(),
-            Box::new(small_rec.clone()),
+            small_rec.clone(),
         )]));
         let deep = Type::Record(AssocList::from_vec(vec![(
             "a".to_string(),
-            Box::new(big_rec.clone()),
+            big_rec.clone(),
         )]));
         assert!(is_subtype(&shallow, &deep, &mut ctx));
 

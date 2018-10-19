@@ -31,7 +31,7 @@ pub fn get_constraints(
             Some(type_) => Ok((type_, Vec::new())),
             None => Err(TypeError::NameError(s.to_string())),
         },
-        Term::Abs(param, box type_, box body) => {
+        Term::Abs(param, type_, box body) => {
             let intype = type_.resolve(context).unwrap_or(type_.clone());
 
             context.push(param.clone(), intype.clone());

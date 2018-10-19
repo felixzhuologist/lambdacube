@@ -8,27 +8,27 @@ pub enum Term {
     Not(Box<Term>),
     Var(String),
     Int(i32),
-    Abs(String, Box<Type>, Box<Term>),
+    Abs(String, Type, Box<Term>),
     /// type abstraction (function from type to term)
     TyAbs(String, Box<Term>),
     /// bounded type abstraction
-    BoundedTyAbs(String, Box<Term>, Box<Type>),
+    BoundedTyAbs(String, Box<Term>, Type),
     /// regular abstraction with inferred type
     InfAbs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
-    TyApp(Box<Term>, Box<Type>),
+    TyApp(Box<Term>, Type),
     Arith(Box<Term>, ArithOp, Box<Term>),
     Logic(Box<Term>, BoolOp, Box<Term>),
     If(Box<Term>, Box<Term>, Box<Term>),
     Let(String, Box<Term>, Box<Term>),
-    Record(AssocList<String, Box<Term>>),
+    Record(AssocList<String, Term>),
     Proj(Box<Term>, String),
     /// introduce an existential: provide the witness type, the implementation,
     /// and the existential type it should inhabit - the term must have its
     /// type explicitly annotated when being defined
     // Analogously to Type::Some, this could take a general Term
     // but right now we assume that it will be a Term::Record anyways
-    Pack(Box<Type>, AssocList<String, Box<Term>>, Box<Type>),
+    Pack(Type, AssocList<String, Term>, Type),
     /// unpack an existential and give it a name for the scope of the third term
     Unpack(String, String, Box<Term>, Box<Term>),
 }

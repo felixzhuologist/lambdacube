@@ -11,18 +11,14 @@ pub mod tests {
             grammar::TermParser::new()
                 .parse("fun (x: Bool) -> 0")
                 .unwrap(),
-            Box::new(Abs(
-                "x".to_string(),
-                Box::new(Type::Bool),
-                Box::new(Int(0))
-            ))
+            Box::new(Abs("x".to_string(), Type::Bool, Box::new(Int(0))))
         );
 
         assert_eq!(
             grammar::TermParser::new().parse("{a=2, b=true}").unwrap(),
             Box::new(Record(AssocList::from_vec(vec![
-                ("a".into(), Box::new(Int(2))),
-                ("b".into(), Box::new(Bool(true)))
+                ("a".into(), Int(2)),
+                ("b".into(), Bool(true)),
             ])))
         );
     }
@@ -83,8 +79,8 @@ pub mod tests {
                 .parse("{a: Int, b: Bool}")
                 .unwrap(),
             Box::new(Type::Record(AssocList::from_vec(vec![
-                ("a".into(), Box::new(Type::Int)),
-                ("b".into(), Box::new(Type::Bool)),
+                ("a".into(), Type::Int),
+                ("b".into(), Type::Bool),
             ])))
         );
 
@@ -128,10 +124,7 @@ pub mod tests {
                 .unwrap(),
             Binder::VarBind(
                 "myrec".into(),
-                Record(AssocList::from_vec(vec![(
-                    "a".into(),
-                    Box::new(Int(2))
-                )]))
+                Record(AssocList::from_vec(vec![("a".into(), Int(2))]))
             )
         );
 

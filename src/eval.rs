@@ -132,10 +132,7 @@ impl EvalStep<Term, EvalError> for Term {
             Proj(box t, key) if t.is_val() => match t {
                 Pack(_, fields, _) | Record(fields) => {
                     let key = key.to_string();
-                    fields
-                        .lookup(&key)
-                        .map(|v| *v)
-                        .ok_or(EvalError::KeyError(key))
+                    fields.lookup(&key).ok_or(EvalError::KeyError(key))
                 }
                 _ => panic!("type checking should catch this"),
             },

@@ -18,7 +18,7 @@ pub fn typecheck(
         Term::Var(s) => {
             context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
-        Term::Abs(param, box type_, box body) => {
+        Term::Abs(param, type_, box body) => {
             let ty = type_.resolve(context)?;
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
@@ -69,16 +69,15 @@ pub fn typecheck(
         }
         Term::Record(fields) => {
             let mut types = Vec::new();
-            for (key, box val) in fields.inner.iter() {
-                types.push((key.clone(), Box::new(typecheck(val, context)?)))
+            for (key, val) in fields.inner.iter() {
+                types.push((key.clone(), typecheck(val, context)?))
             }
             Ok(Type::Record(AssocList::from_vec(types)))
         }
         Term::Proj(box term, key) => match typecheck(term, context)? {
-            Type::Record(fields) => match fields.lookup(&key) {
-                Some(type_) => Ok(*type_),
-                None => Err(TypeError::InvalidKey(key.clone())),
-            },
+            Type::Record(fields) => fields
+                .lookup(&key)
+                .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::TyAbs(_, _)

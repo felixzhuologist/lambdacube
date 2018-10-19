@@ -44,7 +44,7 @@ pub enum TypeError {
     // large. So instead, the typechecker returns an Unsupported error for now
     Unsupported,
     ExpectedSome,
-    ModuleMismatch(AssocList<String, Box<Type>>, AssocList<String, Box<Type>>),
+    ModuleMismatch(AssocList<String, Type>, AssocList<String, Type>),
     /// Pass off a KindError err message as a TypeError
     // TODO: is there a better way to do this?
     KindError(String),

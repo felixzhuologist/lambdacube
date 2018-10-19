@@ -21,7 +21,7 @@ pub fn typecheck(
         Term::Var(s) => {
             context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
-        Term::Abs(param, box type_, box body) => {
+        Term::Abs(param, type_, box body) => {
             let ty = type_.resolve(context)?;
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
@@ -49,7 +49,7 @@ pub fn typecheck(
             }
             _ => Err(TypeError::FuncApp),
         },
-        Term::TyApp(box func, box ty) => match typecheck(func, context)? {
+        Term::TyApp(box func, ty) => match typecheck(func, context)? {
             Type::All(s, box body) => Ok(body.clone().applysubst(&s, ty)),
             _ => Err(TypeError::TyFuncApp),
         },
@@ -85,8 +85,8 @@ pub fn typecheck(
         }
         Term::Record(fields) => {
             let mut types = Vec::new();
-            for (key, box val) in fields.inner.iter() {
-                types.push((key.clone(), Box::new(typecheck(val, context)?)))
+            for (key, val) in fields.inner.iter() {
+                types.push((key.clone(), typecheck(val, context)?))
             }
             Ok(Type::Record(AssocList::from_vec(types)))
         }
@@ -94,11 +94,10 @@ pub fn typecheck(
             // TODO: maybe for modules we should have a different err message
             Type::Some(_, fields) | Type::Record(fields) => fields
                 .lookup(&key)
-                .map(|t| *t)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::Pack(box witness, impls, box ty) => {
+        Term::Pack(witness, impls, ty) => {
             // expose first since we can't apply substituion or try resolving
             // the type until we know it's a Type::Some
             let ty = ty.expose(context).map_err(|s| TypeError::NameError(s))?;
@@ -111,11 +110,8 @@ pub fn typecheck(
 
                 // TODO: code reuse
                 let mut actual = Vec::new();
-                for (name, box val) in impls.inner.iter() {
-                    actual.push((
-                        name.clone(),
-                        Box::new(typecheck(val, context)?),
-                    ))
+                for (name, val) in impls.inner.iter() {
+                    actual.push((name.clone(), typecheck(val, context)?))
                 }
 
                 expected.sort_by_key(|(s, _)| s.clone());
