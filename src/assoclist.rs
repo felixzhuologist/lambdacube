@@ -16,7 +16,7 @@ pub struct AssocList<K: PartialEq, V: Clone> {
     pub inner: Vec<(K, V)>,
 }
 
-impl<K: PartialEq, V: Clone> AssocList<K, V> {
+impl<K: Clone + PartialEq, V: Clone> AssocList<K, V> {
     pub const fn empty() -> AssocList<K, V> {
         AssocList { inner: Vec::new() }
     }
@@ -45,6 +45,30 @@ impl<K: PartialEq, V: Clone> AssocList<K, V> {
         }
         None
     }
+
+    pub fn map_val<T, E, F>(&self, mut func: F) -> Result<AssocList<K, T>, E>
+    where
+        T: Clone,
+        F: FnMut(&V) -> Result<T, E>,
+    {
+        let result: Result<Vec<(K, T)>, E> = self
+            .inner
+            .iter()
+            .map(|(key, val)| func(val).map(|res| (key.clone(), res)))
+            .collect();
+        result.map(|vec| AssocList::from_vec(vec))
+    }
+}
+
+// TODO: how to avoid the code duplication here?
+impl AssocList<String, Term> {
+    pub fn map_typecheck(
+        &self,
+        tc: fn(&Term, &mut TypeContext) -> Result<Type, TypeError>,
+        ctx: &mut TypeContext,
+    ) -> Result<AssocList<String, Type>, TypeError> {
+        self.map_val(|ty| tc(ty, ctx))
+    }
 }
 
 impl fmt::Display for AssocList<String, Type> {
@@ -72,18 +96,12 @@ impl<T: Clone + Substitutable<T>> Substitutable<T> for AssocList<String, T> {
     }
 }
 
-// TODO: how to avoid code duplication in these impls...?
 impl<T, Err> Eval<T, Err> for AssocList<String, T>
 where
     T: Clone + Eval<T, Err>,
 {
     fn eval(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
-        let result: Result<Vec<_>, _> = self
-            .inner
-            .iter()
-            .map(|(key, ref val)| val.eval(ctx).map(|t| (key.clone(), t)))
-            .collect();
-        result.map(|vec| AssocList::from_vec(vec))
+        self.map_val(|t| t.eval(ctx))
     }
 }
 
@@ -94,22 +112,12 @@ where
     // TODO: should probably step one field at a time instead of stepping them
     // all forward at once
     fn eval_step(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
-        let result: Result<Vec<_>, _> = self
-            .inner
-            .iter()
-            .map(|(key, ref val)| val.eval_step(ctx).map(|t| (key.clone(), t)))
-            .collect();
-        result.map(|vec| AssocList::from_vec(vec))
+        self.map_val(|t| t.eval_step(ctx))
     }
 }
 
 impl Resolve for AssocList<String, Type> {
     fn resolve(&self, ctx: &mut TypeContext) -> Result<Self, TypeError> {
-        let result: Result<Vec<_>, _> = self
-            .inner
-            .iter()
-            .map(|(s, val)| val.resolve(ctx).map(|t| (s.clone(), t)))
-            .collect();
-        result.map(|vec| AssocList::from_vec(vec))
+        self.map_val(|t| t.resolve(ctx))
     }
 }

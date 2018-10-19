@@ -1,4 +1,4 @@
-use assoclist::{AssocList, TypeContext};
+use assoclist::TypeContext;
 use errors::TypeError;
 use eval;
 use std::marker;
@@ -68,11 +68,7 @@ pub fn typecheck(
             result
         }
         Term::Record(fields) => {
-            let mut types = Vec::new();
-            for (key, val) in fields.inner.iter() {
-                types.push((key.clone(), typecheck(val, context)?))
-            }
-            Ok(Type::Record(AssocList::from_vec(types)))
+            Ok(Type::Record(fields.map_typecheck(typecheck, context)?))
         }
         Term::Proj(box term, key) => match typecheck(term, context)? {
             Type::Record(fields) => fields

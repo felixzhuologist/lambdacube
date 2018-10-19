@@ -1,7 +1,7 @@
 //! Universal Types
 // TODO: bounded existentials
 
-use assoclist::{AssocList, TypeContext as Context};
+use assoclist::TypeContext as Context;
 use errors::TypeError;
 use syntax::{Substitutable, Term, Type};
 use typecheck::simple::Resolve;
@@ -120,11 +120,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             Ok(result)
         }
         Term::Record(fields) => {
-            let mut types = Vec::new();
-            for (key, val) in fields.inner.iter() {
-                types.push((key.clone(), typecheck(val, ctx)?))
-            }
-            Ok(Type::Record(AssocList::from_vec(types)))
+            Ok(Type::Record(fields.map_typecheck(typecheck, ctx)?))
         }
         Term::Proj(box term, key) => match typecheck(term, ctx)? {
             // TODO: maybe for modules we should have a different err message
@@ -139,23 +135,14 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             let ty = ty.expose(ctx).map_err(|s| TypeError::NameError(s))?;
             if let Type::Some(name, sigs) = ty {
                 let mut expected =
-                    sigs.clone().applysubst(&name, witness).resolve(ctx)?.inner;
-
-                // TODO: code reuse
-                let mut actual = Vec::new();
-                for (name, val) in impls.inner.iter() {
-                    actual.push((name.clone(), typecheck(val, ctx)?))
-                }
-
-                expected.sort_by_key(|(s, _)| s.clone());
-                actual.sort_by_key(|(s, _)| s.clone());
+                    sigs.clone().applysubst(&name, witness).resolve(ctx)?;
+                let mut actual = impls.map_typecheck(typecheck, ctx)?;
+                expected.inner.sort_by_key(|(s, _)| s.clone());
+                actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {
                     Ok(Type::Some(name.clone(), sigs))
                 } else {
-                    Err(TypeError::ModuleMismatch(
-                        AssocList::from_vec(expected),
-                        AssocList::from_vec(actual),
-                    ))
+                    Err(TypeError::ModuleMismatch(expected, actual))
                 }
             } else {
                 Err(TypeError::ExpectedSome)

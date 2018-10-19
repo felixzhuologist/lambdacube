@@ -1,4 +1,4 @@
-use assoclist::{AssocList, TypeContext as Context};
+use assoclist::TypeContext as Context;
 use errors::TypeError;
 use syntax::{Substitutable, Term, Type};
 use typecheck::simple::Resolve;
@@ -74,11 +74,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             result
         }
         Term::Record(fields) => {
-            let mut types = Vec::new();
-            for (key, val) in fields.inner.iter() {
-                types.push((key.clone(), typecheck(val, ctx)?))
-            }
-            Ok(Type::Record(AssocList::from_vec(types)))
+            Ok(Type::Record(fields.map_typecheck(typecheck, ctx)?))
         }
         Term::Proj(box term, key) => match typecheck(term, ctx)? {
             Type::Record(fields) => fields
@@ -139,7 +135,7 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assoclist::TypeContext;
+    use assoclist::{AssocList, TypeContext};
 
     #[test]
     fn subtyping() {
