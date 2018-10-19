@@ -1,9 +1,11 @@
 // Bare bones implementation of an association list. We use an assoc list
 // instead of a std::collections::HashMap since currently performance is not a
 // concern and to make the compiled web assembly as small as possible
+use errors::TypeError;
 use eval::{Eval, EvalStep};
 use std::fmt;
 use syntax::{Kind, Substitutable, Term, Type};
+use typecheck::simple::Resolve;
 
 pub type TermContext = AssocList<String, Term>;
 pub type TypeContext = AssocList<String, Type>;
@@ -73,6 +75,7 @@ impl<T: Clone + Substitutable<T>> Substitutable<T>
     }
 }
 
+// TODO: how to avoid code duplication in these impls...?
 impl<T, Err> Eval<T, Err> for AssocList<String, Box<T>>
 where
     T: Clone + Eval<T, Err>,
@@ -101,6 +104,17 @@ where
             .map(|(key, ref val)| {
                 val.eval_step(ctx).map(|t| (key.clone(), Box::new(t)))
             }).collect();
+        result.map(|vec| AssocList::from_vec(vec))
+    }
+}
+
+impl Resolve for AssocList<String, Box<Type>> {
+    fn resolve(&self, ctx: &mut TypeContext) -> Result<Self, TypeError> {
+        let result: Result<Vec<_>, _> = self
+            .inner
+            .iter()
+            .map(|(s, val)| val.resolve(ctx).map(|t| (s.clone(), Box::new(t))))
+            .collect();
         result.map(|vec| AssocList::from_vec(vec))
     }
 }

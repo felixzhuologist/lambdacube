@@ -1,7 +1,7 @@
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use eval::Eval;
 use syntax::{Substitutable, Term, Type};
+use typecheck::simple::Resolve;
 
 pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
     match term {
@@ -15,7 +15,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, box type_, box body) => {
-            let ty = type_.eval(ctx)?;
+            let ty = type_.resolve(ctx)?;
             ctx.push(param.clone(), ty.clone());
             let result =
                 Ok(Type::Arr(Box::new(ty), Box::new(typecheck(body, ctx)?)));

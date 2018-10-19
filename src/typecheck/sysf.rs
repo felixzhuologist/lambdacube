@@ -4,8 +4,8 @@
 
 use assoclist::{AssocList, TypeContext as Context};
 use errors::TypeError;
-use eval::Eval;
 use syntax::{Substitutable, Term, Type};
+use typecheck::simple::Resolve;
 
 pub fn typecheck(
     term: &Term,
@@ -22,7 +22,7 @@ pub fn typecheck(
             context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, box type_, box body) => {
-            let ty = type_.eval(context)?;
+            let ty = type_.resolve(context)?;
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
@@ -106,7 +106,7 @@ pub fn typecheck(
                 let mut expected = sigs
                     .clone()
                     .applysubst(&name, witness)
-                    .eval(context)?
+                    .resolve(context)?
                     .inner;
 
                 // TODO: code reuse

@@ -45,6 +45,11 @@ pub enum TypeError {
     Unsupported,
     ExpectedSome,
     ModuleMismatch(AssocList<String, Box<Type>>, AssocList<String, Box<Type>>),
+    /// Pass off a KindError err message as a TypeError
+    // TODO: is there a better way to do this?
+    KindError(String),
+    // Tried to use a value that has a non proper type
+    NonProper,
 }
 
 impl fmt::Display for TypeError {
@@ -105,6 +110,8 @@ impl fmt::Display for TypeError {
                     actual,
                     expected)
             }
+            TypeError::KindError(ref s) => write!(f, "{}", s),
+            TypeError::NonProper => write!(f, "Values can only have proper types"),
         }
     }
 }

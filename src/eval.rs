@@ -1,9 +1,10 @@
 use std::marker;
 
-use assoclist::{AssocList, TermContext, TypeContext};
+use assoclist::{AssocList, KindContext, TermContext, TypeContext};
 use errors::{EvalError, TypeError};
+use kindcheck::kindcheck;
 use syntax::Term::*;
-use syntax::{ArithOp, BoolOp, Substitutable, Term, Type};
+use syntax::{ArithOp, BoolOp, Kind, Substitutable, Term, Type};
 
 pub trait Eval<T, Err> {
     fn eval(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err>
@@ -194,6 +195,20 @@ impl Eval<Type, TypeError> for Type {
             },
         }
     }
+}
+
+// TODO: it would be nice if symmetry between Term/Type and Type/Kind was as
+// explicit as possible in the code. Right now there are slight differences in
+// implementation, e.g. eval_term is a method of Program whereas eval_type is
+// its own function here.
+pub fn eval_type(
+    ty: &Type,
+    tyctx: &mut TypeContext,
+) -> Result<(Type, Kind), TypeError> {
+    let mut kctx = KindContext::empty();
+    kindcheck(ty, &mut kctx)
+        .map_err(|e| TypeError::KindError(e.to_string()))
+        .and_then(|kind| ty.eval(tyctx).map(|ty| (ty, kind)))
 }
 
 #[cfg(test)]

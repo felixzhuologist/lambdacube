@@ -205,7 +205,7 @@ pub Kind: Box<Kind> = {
 }
 
 AKind: Box<Kind> = {
-    "*" => Box::new(Kind::Proper),
+    "*" => Box::new(Kind::Star),
     "(" <Kind> ")",
 }
 

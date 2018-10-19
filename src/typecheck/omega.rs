@@ -1,12 +1,12 @@
-use assoclist::{AssocList, TypeContext as Context};
+use assoclist::{AssocList, TypeContext};
 use errors::TypeError;
-use eval::Eval;
+use eval;
 use std::marker;
-use syntax::{Term, Type};
+use syntax::{Kind, Term, Type};
 
 pub fn typecheck(
     term: &Term,
-    context: &mut Context,
+    context: &mut TypeContext,
 ) -> Result<Type, TypeError> {
     match term {
         Term::Bool(_) => Ok(Type::Bool),
@@ -19,7 +19,7 @@ pub fn typecheck(
             context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, box type_, box body) => {
-            let ty = type_.resolve(context)?;
+            let ty = type_.simplify(context)?;
             context.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
@@ -90,36 +90,18 @@ pub fn typecheck(
     }
 }
 
-pub trait Resolve {
-    fn resolve(&self, ctx: &mut Context) -> Result<Self, TypeError>
+pub trait Simplify {
+    fn simplify(&self, ctx: &mut TypeContext) -> Result<Self, TypeError>
     where
         Self: marker::Sized;
 }
 
-impl Resolve for Type {
-    /// wrapper around ty.eval() that errors if it contains a type operator, for
-    /// use by typecheckers that don't support type operators
-    fn resolve(&self, ctx: &mut Context) -> Result<Self, TypeError> {
-        if has_ty_operators(self) {
-            Err(TypeError::Unsupported)
-        } else {
-            self.eval(ctx)
-        }
-    }
-}
-
-pub fn has_ty_operators(ty: &Type) -> bool {
-    match ty {
-        Type::Bool | Type::Int | Type::Var(_) | Type::BoundedVar(_, _) => false,
-        Type::TyAbs(_, _, _) | Type::TyApp(_, _) => true,
-        Type::Record(fields) | Type::Some(_, fields) => fields
-            .inner
-            .iter()
-            .any(|(_, ref val)| has_ty_operators(val)),
-        Type::All(_, ref fun) => has_ty_operators(fun),
-        Type::BoundedAll(_, ref l, ref r) | Type::Arr(ref l, ref r) => {
-            has_ty_operators(l) || has_ty_operators(r)
-        }
+impl Simplify for Type {
+    fn simplify(&self, ctx: &mut TypeContext) -> Result<Self, TypeError> {
+        eval::eval_type(self, ctx).and_then(|(ty, kind)| match kind {
+            Kind::Star => Ok(ty),
+            _ => Err(TypeError::NonProper),
+        })
     }
 }
 
@@ -139,18 +121,14 @@ pub mod tests {
 
     #[test]
     fn e2e_type() {
-        assert_eq!(typecheck_code("if true then 0 else 2"), "Int");
-        assert_eq!(
-            typecheck_code("let x = 0 in if x + 2 then 0 else 2"),
-            "If/else condition must be a Bool"
-        );
-        assert_eq!(typecheck_code("fun (x: Int) -> x >= 0"), "(Int -> Bool)");
-        assert_eq!(typecheck_code("3 4"), "Tried to apply non function type");
-        assert_eq!(typecheck_code("(fun (x: Int) -> x*2 + 1) 0"), "Int");
-
         let tyfun = "tyfun (X: *) => X -> X";
         assert_eq!(
             typecheck_code(&format!("fun (x: {}) -> x", tyfun)),
-            "Attempted to use an unsupported feature for the current type system");
+            "Values can only have proper types"
+        );
+        assert_eq!(
+            typecheck_code(&format!("fun (x: ({}) Int) -> x", tyfun)),
+            "((Int -> Int) -> (Int -> Int))"
+        );
     }
 }
