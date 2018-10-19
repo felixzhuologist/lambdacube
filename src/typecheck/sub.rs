@@ -10,10 +10,9 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             Type::Bool => Ok(Type::Bool),
             _ => Err(TypeError::NegateNonBool),
         },
-        Term::Var(s) => match ctx.lookup(s) {
-            Some(type_) => Ok(type_),
-            None => Err(TypeError::NameError(s.to_string())),
-        },
+        Term::Var(s) => {
+            ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
+        }
         Term::Abs(param, box type_, box body) => {
             let ty = type_.resolve(ctx).map_err(|s| TypeError::NameError(s))?;
             ctx.push(param.clone(), ty.clone());

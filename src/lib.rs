@@ -8,6 +8,7 @@ extern crate wasm_bindgen;
 pub mod assoclist;
 pub mod errors;
 pub mod eval;
+pub mod evalty;
 pub mod grammar;
 pub mod program;
 pub mod syntax;

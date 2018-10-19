@@ -185,6 +185,10 @@ mod tests {
             typecheck_code("fun[X] (x: X) -> x + 1"),
             "Cannot apply + to X and Int"
         );
+        assert_eq!(
+            typecheck_code("fun (f: forall X . X -> X) -> f[Int] 3"),
+            "<fun>"
+        );
     }
 
     #[test]

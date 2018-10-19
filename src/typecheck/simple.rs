@@ -13,10 +13,9 @@ pub fn typecheck(
             Type::Bool => Ok(Type::Bool),
             _ => Err(TypeError::NegateNonBool),
         },
-        Term::Var(s) => match context.lookup(s) {
-            Some(type_) => Ok(type_),
-            None => Err(TypeError::NameError(s.to_string())),
-        },
+        Term::Var(s) => {
+            context.lookup(s).ok_or(TypeError::NameError(s.to_string()))
+        }
         Term::Abs(param, box type_, box body) => {
             let ty = type_
                 .resolve(context)

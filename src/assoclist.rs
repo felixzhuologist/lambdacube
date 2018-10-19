@@ -2,10 +2,11 @@
 // instead of a std::collections::HashMap since currently performance is not a
 // concern and to make the compiled web assembly as small as possible
 use std::fmt;
-use syntax::{Resolvable, Substitutable, Term, Type};
+use syntax::{Kind, Resolvable, Substitutable, Term, Type};
 
 pub type TermContext = AssocList<String, Term>;
 pub type TypeContext = AssocList<String, Type>;
+pub type KindContext = AssocList<String, Kind>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssocList<K: PartialEq, V: Clone> {

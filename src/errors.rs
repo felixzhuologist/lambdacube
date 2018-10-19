@@ -1,6 +1,6 @@
 use assoclist::AssocList;
 use std::fmt;
-use syntax::{ArithOp, BoolOp, Type};
+use syntax::{ArithOp, BoolOp, Kind, Type};
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -105,6 +105,29 @@ impl fmt::Display for TypeError {
                     actual,
                     expected)
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum KindError {
+    NameError(String),
+    ArgMismatch(Kind, Kind),
+    FuncApp,
+}
+
+impl fmt::Display for KindError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            KindError::NameError(ref s) => {
+                write!(f, "eval error: variable {} not found", s)
+            }
+            KindError::ArgMismatch(ref expected, ref actual) => write!(
+                f,
+                "Expected argument of kind {} but got {} instead",
+                expected, actual
+            ),
+            KindError::FuncApp => write!(f, "Tried to apply non function kind"),
         }
     }
 }
