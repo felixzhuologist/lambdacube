@@ -1,14 +1,12 @@
 use assoclist::{TermContext, TypeContext};
 use errors::TypeError;
-use eval::Eval;
-use syntax::{Binder, Command, Term, Type};
+use eval::eval_type;
+use syntax::{Binder, Command, Term, Type, Kind};
 
-type TypeChecker = fn(&Term, &mut TypeContext) -> Result<Type, TypeError>;
+type TypeChecker = fn(&Term, &mut TermContext, &mut TypeContext) -> Result<Type, TypeError>;
 
 pub struct Program {
     term_ctx: TermContext,
-    // TODO: since type alias names and variable names have no overlap, ty_ctx
-    // is used to store both. should probably separate them at some point
     ty_ctx: TypeContext,
     typecheck: TypeChecker,
 }
@@ -78,24 +76,29 @@ impl Program {
     fn eval_binder(&mut self, binder: Binder) -> Result<(), String> {
         match binder {
             Binder::VarBind(ref s, ref t) => {
-                self.eval_term(t).map(|(val, ty)| {
-                    self.term_ctx.push(s.clone(), val);
-                    self.ty_ctx.push(s.clone(), ty);
-                    ()
-                })
+                self.eval_term(t)
+                    .map(|(val, ty)| {
+                        self.term_ctx.push(s.clone(), (val, ty));
+                    })
             }
             Binder::TyBind(s, ty) => {
-                self.ty_ctx.push(s.clone(), ty);
-                Ok(())
+                eval_type(ty)
+                    .map(|(ty, kind)| {
+                        self.ty_ctx.push(s.clone(), (ty, kind));
+                    })
+                    .map_err(|err| err.to_string())
             }
             Binder::ModuleBind(ref var, ref tyvar, ref module) => {
                 self.eval_term(module).map(|(val, ty)| {
                     if let Term::Pack(witness, impls, _) = val {
-                        self.term_ctx.push(var.clone(), Term::Record(impls));
-                        self.ty_ctx.push(var.clone(), ty);
-                        // TODO: should this be added to scope?
-                        self.ty_ctx.push(tyvar.clone(), witness);
-                        ()
+                        self.term_ctx.push(
+                            var.clone(), 
+                            (Term::Record(impls), ty));
+    
+                        self.ty_ctx.push(
+                            tyvar.clone(),
+                            // TODO: do we know for sure this is a proper type?
+                            (witness, Kind::Star));
                     }
                 })
             }
@@ -103,7 +106,7 @@ impl Program {
     }
 
     fn eval_term(&mut self, ast: &Term) -> Result<(Term, Type), String> {
-        (self.typecheck)(ast, &mut self.ty_ctx)
+        (self.typecheck)(ast, &mut self.term_ctx, &mut self.ty_ctx)
             .map_err(|e| e.to_string())
             .and_then(|type_| {
                 ast.eval(&mut self.term_ctx)

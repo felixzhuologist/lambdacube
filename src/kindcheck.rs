@@ -1,8 +1,8 @@
-use assoclist::KindContext;
+use assoclist::{Context, TypeContext};
 use errors::KindError;
 use syntax::{Kind, Type};
 
-pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
+pub fn kindcheck(ty: &Type, ctx: &mut TypeContext) -> Result<Kind, KindError> {
     match ty {
         Type::Bool
         | Type::Int
@@ -12,11 +12,11 @@ pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
         | Type::BoundedAll(_, _, _)
         | Type::Some(_, _) => Ok(Kind::Star),
         Type::Var(s) => {
-            ctx.lookup(s).ok_or(KindError::NameError(s.to_string()))
+            ctx.get_kind(s).ok_or(KindError::NameError(s.to_string()))
         }
         Type::BoundedVar(_, box ty) => kindcheck(ty, ctx),
         Type::TyAbs(param, kind, box body) => {
-            ctx.push(param.clone(), kind.clone());
+            ctx.push(param.clone(), (None, kind.clone()));
             let result = Ok(Kind::Arr(
                 Box::new(kind.clone()),
                 Box::new(kindcheck(body, ctx)?),
@@ -39,13 +39,13 @@ pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use assoclist::KindContext;
+    use assoclist::TypeContext;
     use grammar;
 
     pub fn kindcheck_code(code: &str) -> String {
         kindcheck(
             &grammar::TypeParser::new().parse(code).unwrap(),
-            &mut KindContext::empty(),
+            &mut TypeContext::empty(),
         ).map(|kind| kind.to_string())
         .unwrap_or_else(|err| err.to_string())
     }

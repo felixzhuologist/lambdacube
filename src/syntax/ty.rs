@@ -1,4 +1,6 @@
 use std::fmt;
+use std::str::FromStr;
+use std::string::ParseError;
 
 use assoclist::{AssocList, TypeContext};
 use syntax::{Kind, Substitutable};
@@ -36,6 +38,14 @@ impl Type {
         } else {
             Ok(self.clone())
         }
+    }
+}
+
+impl FromStr for Type {
+    type Err = ParseError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Ok(Type::Var(name.clone()))
     }
 }
 

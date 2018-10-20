@@ -1,5 +1,8 @@
-use assoclist::AssocList;
 use std::fmt;
+use std::str::FromStr;
+use std::string::ParseError;
+
+use assoclist::AssocList;
 use syntax::{Substitutable, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,6 +67,14 @@ impl Term {
             | Term::Proj(_, _)
             | Term::Unpack(_, _, _, _) => false,
         }
+    }
+}
+
+impl FromStr for Term {
+    type Err = ParseError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Ok(Term::Var(name.clone()))
     }
 }
 

@@ -1,31 +1,35 @@
-use assoclist::TypeContext as Context;
+use assoclist::{Context, TermContext, TypeContext};
 use errors::TypeError;
 use syntax::{Substitutable, Term, Type};
 use typecheck::simple::Resolve;
 
-pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
+pub fn typecheck(
+    term: &Term,
+    term_ctx: &mut TermContext,
+    type_ctx: &mut TypeContext
+) -> Result<Type, TypeError> {
     match term {
         Term::Bool(_) => Ok(Type::Bool),
         Term::Int(_) => Ok(Type::Int),
-        Term::Not(box t) => match typecheck(t, ctx)? {
+        Term::Not(box t) => match typecheck(t, term_ctx)? {
             Type::Bool => Ok(Type::Bool),
             _ => Err(TypeError::NegateNonBool),
         },
         Term::Var(s) => {
-            ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
+            term_ctx.get_sort(s).ok_or(TypeError::NameError(s.to_string()))
         }
         Term::Abs(param, type_, box body) => {
-            let ty = type_.resolve(ctx)?;
-            ctx.push(param.clone(), ty.clone());
+            let ty = type_.resolve(type_ctx)?;
+            term_ctx.add_sort(param, ty.clone());
             let result =
-                Ok(Type::Arr(Box::new(ty), Box::new(typecheck(body, ctx)?)));
-            ctx.pop();
+                Ok(Type::Arr(Box::new(ty), Box::new(typecheck(body, term_ctx)?)));
+            term_ctx.pop();
             result
         }
-        Term::App(box func, box val) => match typecheck(func, ctx)? {
+        Term::App(box func, box val) => match typecheck(func, term_ctx)? {
             Type::Arr(box in_type, box out_type) => {
-                let t = typecheck(val, ctx)?;
-                if is_subtype(&t, &in_type, ctx) {
+                let t = typecheck(val, term_ctx)?;
+                if is_subtype(&t, &in_type, term_ctx) {
                     Ok(out_type.clone())
                 } else {
                     Err(TypeError::ArgMismatch(in_type, t))
@@ -34,10 +38,10 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             _ => Err(TypeError::FuncApp),
         },
         Term::Arith(box left, op, box right) => {
-            let l = typecheck(left, ctx)?;
-            let r = typecheck(right, ctx)?;
-            if is_subtype(&l, &Type::Int, ctx)
-                && is_subtype(&r, &Type::Int, ctx)
+            let l = typecheck(left, term_ctx)?;
+            let r = typecheck(right, term_ctx)?;
+            if is_subtype(&l, &Type::Int, term_ctx)
+                && is_subtype(&r, &Type::Int, term_ctx)
             {
                 Ok(op.return_type())
             } else {
@@ -45,10 +49,10 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::Logic(box left, op, box right) => {
-            let l = typecheck(left, ctx)?;
-            let r = typecheck(right, ctx)?;
-            if is_subtype(&l, &Type::Bool, ctx)
-                && is_subtype(&r, &Type::Bool, ctx)
+            let l = typecheck(left, term_ctx)?;
+            let r = typecheck(right, term_ctx)?;
+            if is_subtype(&l, &Type::Bool, term_ctx)
+                && is_subtype(&r, &Type::Bool, term_ctx)
             {
                 Ok(Type::Bool)
             } else {
@@ -56,9 +60,9 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::If(box cond, box if_, box else_) => {
-            let left = typecheck(if_, ctx)?;
-            let right = typecheck(else_, ctx)?;
-            if !is_subtype(&typecheck(cond, ctx)?, &Type::Bool, ctx) {
+            let left = typecheck(if_, term_ctx)?;
+            let right = typecheck(else_, term_ctx)?;
+            if !is_subtype(&typecheck(cond, term_ctx)?, &Type::Bool, term_ctx) {
                 Err(TypeError::IfElseCond)
             } else if left != right {
                 Err(TypeError::IfElseArms(left, right))
@@ -67,16 +71,16 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::Let(varname, box val, box term) => {
-            let val_type = typecheck(val, ctx)?;
-            ctx.push(varname.clone(), val_type);
-            let result = Ok(typecheck(term, ctx)?);
-            ctx.pop();
+            let val_type = typecheck(val, term_ctx)?;
+            term_ctx.add_sort(varname, val_type);
+            let result = Ok(typecheck(term, term_ctx)?);
+            term_ctx.pop();
             result
         }
         Term::Record(fields) => {
-            Ok(Type::Record(fields.map_typecheck(typecheck, ctx)?))
+            Ok(Type::Record(fields.map_typecheck(typecheck, term_ctx)?))
         }
-        Term::Proj(box term, key) => match typecheck(term, ctx)? {
+        Term::Proj(box term, key) => match typecheck(term, term_ctx)? {
             Type::Record(fields) => fields
                 .lookup(&key)
                 .ok_or(TypeError::InvalidKey(key.clone())),
@@ -93,7 +97,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
 
 // TODO: implement Ord for Types?
 // TODO: return error for lookup failures instead of false?
-pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
+pub fn is_subtype(left: &Type, right: &Type, ctx: &mut TermContext) -> bool {
     left == right || match (left, right) {
         (Type::Record(fields1), Type::Record(fields2)) => fields2
             .inner
@@ -106,7 +110,7 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
             is_subtype(in2, in1, ctx) && is_subtype(out1, out2, ctx)
         }
         (Type::Var(ref s), ty) => {
-            let promoted = ctx.lookup(s);
+            let promoted = ctx.get_sort(s);
             if promoted.is_some() {
                 match promoted.unwrap() {
                     Type::Var(ref s2) if s == s2 => false,
@@ -135,11 +139,11 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assoclist::{AssocList, TypeContext};
+    use assoclist::AssocList;
 
     #[test]
     fn subtyping() {
-        let mut ctx = TypeContext::empty();
+        let mut ctx = TermContext::empty();
 
         // types are equal
         assert!(is_subtype(&Type::Bool, &Type::Bool, &mut ctx));

@@ -4,12 +4,9 @@
 use errors::TypeError;
 use eval::{Eval, EvalStep};
 use std::fmt;
+use std::str::FromStr;
 use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::simple::Resolve;
-
-pub type TermContext = AssocList<String, Term>;
-pub type TypeContext = AssocList<String, Type>;
-pub type KindContext = AssocList<String, Kind>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssocList<K: PartialEq, V: Clone> {
@@ -60,14 +57,49 @@ impl<K: Clone + PartialEq, V: Clone> AssocList<K, V> {
     }
 }
 
-// TODO: how to avoid the code duplication here?
-impl AssocList<String, Term> {
+// the second element is an option because we might not care what the sort
+// is during evaluation and just want to add a value to the context
+pub type TermContext = AssocList<String, (Term, Option<Type>)>;
+pub type TypeContext = AssocList<String, (Type, Option<Kind>)>;
+
+pub trait Context<Val, Sort> {
+    fn get_val(&self, name: &String) -> Option<Val>;
+    fn add_val(&self, name: &String, val: Val);
+    fn get_sort(&self, name: &String) -> Option<Sort>;
+    fn add_sort(&self, name: &String, sort: Sort);
+}
+
+impl<Val, Sort> Context<Val, Sort> for AssocList<String, (Val, Option<Sort>)>
+where
+    Val: Clone + FromStr,
+    <Val as FromStr>::Err: fmt::Debug,
+    Sort: Clone
+{
+    fn get_val(&self, name: &String) -> Option<Val> {
+        self.lookup(name).map(|p| p.0)
+    }
+
+    fn add_val(&self, name: &String, val: Val) {
+        self.push(name.clone(), (val, None))
+    }
+
+    fn get_sort(&self, name: &String) -> Option<Sort> {
+        self.lookup(name).map(|p| p.1.unwrap())
+    }
+
+    fn add_sort(&self, name: &String, sort: Sort) {
+        self.push(name.clone(), (name.parse().unwrap(), Some(sort)))
+    }
+}
+
+impl AssocList<String, (Term, Option<Type>)> {
     pub fn map_typecheck(
         &self,
-        tc: fn(&Term, &mut TypeContext) -> Result<Type, TypeError>,
-        ctx: &mut TypeContext,
+        tc: fn(&Term, &mut TermContext, &mut TypeContext) -> Result<Type, TypeError>,
+        term_ctx: &mut TermContext,
+        type_ctx: &mut TypeContext,
     ) -> Result<AssocList<String, Type>, TypeError> {
-        self.map_val(|ty| tc(ty, ctx))
+        self.map_val(|(t, _)| tc(&t.unwrap(), term_ctx, type_ctx))
     }
 }
 
@@ -96,23 +128,25 @@ impl<T: Clone + Substitutable<T>> Substitutable<T> for AssocList<String, T> {
     }
 }
 
-impl<T, Err> Eval<T, Err> for AssocList<String, T>
+impl<T, S, Err> Eval<T, S, Err> for AssocList<String, (T, S)>
 where
-    T: Clone + Eval<T, Err>,
+    T: Clone + Eval<T, S, Err>,
+    S: Clone,
 {
-    fn eval(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
-        self.map_val(|t| t.eval(ctx))
+    fn eval(&self, ctx: &mut AssocList<String, (T, Option<S>)>) -> Result<Self, Err> {
+        self.map_val(|(t, _)| t.eval(ctx))
     }
 }
 
-impl<T, Err> EvalStep<T, Err> for AssocList<String, T>
+impl<T, S, Err> EvalStep<T, S, Err> for AssocList<String, (T, S)>
 where
-    T: Clone + EvalStep<T, Err>,
+    T: Clone + EvalStep<T, S, Err>,
+    S: Clone,
 {
     // TODO: should probably step one field at a time instead of stepping them
     // all forward at once
-    fn eval_step(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
-        self.map_val(|t| t.eval_step(ctx))
+    fn eval_step(&self, ctx: &mut AssocList<String, (T, Option<S>)>) -> Result<Self, Err> {
+        self.map_val(|(t, _)| t.eval_step(ctx))
     }
 }
 

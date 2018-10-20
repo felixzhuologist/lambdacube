@@ -1,5 +1,5 @@
 //! Implementation of let polymorphism with type inference (Hindley-Milner)
-use assoclist::TypeContext as Context;
+use assoclist::{Context, TermContext, TypeContext};
 use errors::TypeError;
 use syntax::{Term, Type};
 use typecheck::simple::Resolve;
@@ -8,9 +8,10 @@ pub type Constraints = Vec<(Type, Type)>;
 
 pub fn typecheck(
     term: &Term,
-    context: &mut Context,
+    term_ctx: &mut TermContext,
+    type_ctx: &mut TypeContext,
 ) -> Result<Type, TypeError> {
-    let (ty, constraints) = get_constraints(term, context)?;
+    let (ty, constraints) = get_constraints(term, term_ctx, type_ctx)?;
     let sigma = unify(constraints).map_err(|_| TypeError::UnifyError)?;
     Ok(applysubst(ty, &sigma))
 }
@@ -19,40 +20,41 @@ pub fn typecheck(
 /// IFF the set of constraints is satisfied
 pub fn get_constraints(
     term: &Term,
-    context: &mut Context,
+    term_ctx: &mut TermContext,
+    type_ctx: &mut TypeContext,
 ) -> Result<(Type, Constraints), TypeError> {
     match term {
         Term::Bool(_) => Ok((Type::Bool, Vec::new())),
         Term::Int(_) => Ok((Type::Int, Vec::new())),
         Term::Not(box t) => {
-            Ok((Type::Bool, vec![(typecheck(t, context)?, Type::Bool)]))
+            Ok((Type::Bool, vec![(typecheck(t, term_ctx)?, Type::Bool)]))
         }
-        Term::Var(s) => match context.lookup(s) {
+        Term::Var(s) => match term_ctx.get_sort(s) {
             Some(type_) => Ok((type_, Vec::new())),
             None => Err(TypeError::NameError(s.to_string())),
         },
         Term::Abs(param, type_, box body) => {
-            let intype = type_.resolve(context).unwrap_or(type_.clone());
+            let intype = type_.resolve(type_ctx).unwrap_or(type_.clone());
 
-            context.push(param.clone(), intype.clone());
-            let (outtype, constr) = get_constraints(body, context)?;
+            term_ctx.add_sort(param, intype.clone());
+            let (outtype, constr) = get_constraints(body, term_ctx)?;
             let result =
                 Ok((Type::Arr(Box::new(intype), Box::new(outtype)), constr));
-            context.pop();
+            term_ctx.pop();
             result
         }
         Term::InfAbs(param, box body) => {
-            let intype = Type::Var(pick_fresh_intype(&context));
-            context.push(param.clone(), intype.clone());
-            let (outtype, constr) = get_constraints(body, context)?;
+            let intype = Type::Var(pick_fresh_intype(&term_ctx));
+            term_ctx.add_sort(param, intype.clone());
+            let (outtype, constr) = get_constraints(body, term_ctx)?;
             let result =
                 Ok((Type::Arr(Box::new(intype), Box::new(outtype)), constr));
-            context.pop();
+            term_ctx.pop();
             result
         }
         Term::App(box func, box val) => {
-            let (ty1, mut constr) = get_constraints(func, context)?;
-            let (ty2, constr2) = get_constraints(val, context)?;
+            let (ty1, mut constr) = get_constraints(func, term_ctx)?;
+            let (ty2, constr2) = get_constraints(val, term_ctx)?;
             constr.extend(constr2);
             let return_type = Type::Var(pick_fresh_outtype(&constr));
             constr.push((
@@ -63,8 +65,8 @@ pub fn get_constraints(
         }
         // TODO: refactor shared code
         Term::Arith(box left, op, box right) => {
-            let (tyleft, mut constr) = get_constraints(left, context)?;
-            let (tyright, mut constr2) = get_constraints(right, context)?;
+            let (tyleft, mut constr) = get_constraints(left, term_ctx)?;
+            let (tyright, mut constr2) = get_constraints(right, term_ctx)?;
             constr.extend(constr2);
             constr.push((tyleft, Type::Int));
             constr.push((tyright, Type::Int));
@@ -72,8 +74,8 @@ pub fn get_constraints(
             Ok((op.return_type(), constr))
         }
         Term::Logic(box left, _, box right) => {
-            let (tyleft, mut constr) = get_constraints(left, context)?;
-            let (tyright, mut constr2) = get_constraints(right, context)?;
+            let (tyleft, mut constr) = get_constraints(left, term_ctx)?;
+            let (tyright, mut constr2) = get_constraints(right, term_ctx)?;
             constr.extend(constr2);
             constr.push((tyleft, Type::Bool));
             constr.push((tyright, Type::Bool));
@@ -81,9 +83,9 @@ pub fn get_constraints(
             Ok((Type::Bool, constr))
         }
         Term::If(box cond, box if_, box else_) => {
-            let (tycond, mut constr) = get_constraints(cond, context)?;
-            let (tyif, constr1) = get_constraints(if_, context)?;
-            let (tyelse, constr2) = get_constraints(else_, context)?;
+            let (tycond, mut constr) = get_constraints(cond, term_ctx)?;
+            let (tyif, constr1) = get_constraints(if_, term_ctx)?;
+            let (tyelse, constr2) = get_constraints(else_, term_ctx)?;
             constr.extend(constr1);
             constr.extend(constr2);
             constr.push((tycond, Type::Bool));
@@ -92,9 +94,9 @@ pub fn get_constraints(
             Ok((tyif, constr))
         }
         Term::Let(varname, box val, box term) => {
-            let (tyval, mut constr) = get_constraints(val, context)?;
-            context.push(varname.clone(), tyval);
-            let (tyres, constr2) = get_constraints(term, context)?;
+            let (tyval, mut constr) = get_constraints(val, term_ctx)?;
+            term_ctx.add_sort(varname, tyval);
+            let (tyres, constr2) = get_constraints(term, term_ctx)?;
             constr.extend(constr2);
             Ok((tyres, constr))
         }
@@ -107,8 +109,8 @@ pub fn get_constraints(
     }
 }
 
-fn unify(mut constr: Constraints) -> Result<Context, ()> {
-    let mut result = Context::empty();
+fn unify(mut constr: Constraints) -> Result<TermContext, ()> {
+    let mut result = TermContext::empty();
     while !constr.is_empty() {
         match constr.pop().unwrap() {
             (ref ty1, ref ty2) if ty1 == ty2 => (),
@@ -117,7 +119,7 @@ fn unify(mut constr: Constraints) -> Result<Context, ()> {
                     return Err(());
                 }
                 constr = update_constraints(&s, &ty, constr);
-                result.push(s, ty);
+                result.add_sort(s, ty);
             }
             (Type::Arr(box ty11, box ty12), Type::Arr(box ty21, box ty22)) => {
                 constr.insert(0, (ty11, ty21));
@@ -130,10 +132,10 @@ fn unify(mut constr: Constraints) -> Result<Context, ()> {
 }
 
 /// Resolve all type variables using the input context
-pub fn applysubst(ty: Type, ctx: &Context) -> Type {
+pub fn applysubst(ty: Type, ctx: &TermContext) -> Type {
     ctx.inner
         .iter()
-        .fold(ty, |ty, (s, tyval)| tysubst(s, tyval, ty))
+        .fold(ty, |ty, (s, (_, tyval))| tysubst(s, tyval.unwrap(), ty))
 }
 
 pub fn update_constraints(
@@ -147,13 +149,13 @@ pub fn update_constraints(
         .collect()
 }
 
-fn pick_fresh_intype(ctx: &Context) -> String {
+fn pick_fresh_intype(ctx: &TermContext) -> String {
     let mut var = String::from("X");
     loop {
         if !ctx
             .inner
             .iter()
-            .any(|(s, ty2)| *s == var || occursin(&var, ty2))
+            .any(|(s, (_, ty2))| *s == var || occursin(&var, ty2.unwrap()))
         {
             return var;
         }
@@ -209,13 +211,12 @@ pub fn occursin(s: &str, ty: &Type) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assoclist::TypeContext;
     use grammar;
 
     fn typecheck_code(code: &str) -> String {
         match typecheck(
             &grammar::TermParser::new().parse(code).unwrap(),
-            &mut TypeContext::empty(),
+            &mut TermContext::empty(),
         ) {
             Ok(type_) => type_.to_string(),
             Err(err) => err.to_string(),

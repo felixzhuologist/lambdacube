@@ -1,31 +1,34 @@
 use std::marker;
 
-use assoclist::{AssocList, KindContext, TermContext, TypeContext};
+use assoclist::{AssocList, Context, TermContext, TypeContext};
 use errors::{EvalError, TypeError};
 use kindcheck::kindcheck;
 use syntax::Term::*;
 use syntax::{ArithOp, BoolOp, Kind, Substitutable, Term, Type};
 
-pub trait Eval<T, Err> {
-    fn eval(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err>
+pub trait Eval<T, S, Err> {
+    fn eval(&self, ctx: &mut AssocList<String, (T, Option<S>)>) -> Result<Self, Err>
     where
         T: Clone,
+        S: Clone,
         Self: marker::Sized;
 }
 
-pub trait EvalStep<T, Err> {
-    fn eval_step(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err>
+pub trait EvalStep<T, S, Err> {
+    fn eval_step(&self, ctx: &mut AssocList<String, (T, Option<S>)>) -> Result<Self, Err>
     where
         T: Clone,
+        S: Clone,
         Self: marker::Sized;
 }
 
 /// Default implementation for Eval which just calls eval_step until it gets stuck
-impl<T, Err> Eval<T, Err> for T
+impl<T, S, Err> Eval<T, S, Err> for T
 where
-    T: Clone + EvalStep<T, Err> + PartialEq + Eq,
+    T: Clone + EvalStep<T, S, Err> + PartialEq + Eq,
+    S: Clone
 {
-    fn eval(&self, ctx: &mut AssocList<String, T>) -> Result<Self, Err> {
+    fn eval(&self, ctx: &mut AssocList<String, (T, Option<S>)>) -> Result<Self, Err> {
         let mut current = self.clone();
         loop {
             let next = current.eval_step(ctx)?;
@@ -37,7 +40,7 @@ where
     }
 }
 
-impl EvalStep<Term, EvalError> for Term {
+impl EvalStep<Term, Type, EvalError> for Term {
     fn eval_step(&self, ctx: &mut TermContext) -> Result<Term, EvalError> {
         match self {
             Not(box Bool(b)) => Ok(Bool(!b)),
@@ -59,7 +62,7 @@ impl EvalStep<Term, EvalError> for Term {
             TyApp(box func, arg) => {
                 Ok(TyApp(Box::new(func.eval_step(ctx)?), arg.clone()))
             }
-            Var(s) => ctx.lookup(s).ok_or(EvalError::NameError(s.to_string())),
+            Var(s) => ctx.get_val(s).ok_or(EvalError::NameError(s.to_string())),
             Arith(box Int(a), op, box Int(b)) => match op {
                 ArithOp::Mul => Ok(Int(a * b)),
                 ArithOp::Div => Ok(Int(a / b)),
@@ -104,14 +107,14 @@ impl EvalStep<Term, EvalError> for Term {
                 Ok(If(Box::new(cond.eval_step(ctx)?), t1.clone(), t2.clone()))
             }
             Let(varname, box val, box term) if val.is_val() => {
-                ctx.push(varname.clone(), val.clone());
+                ctx.add_val(varname, val.clone());
                 Ok(term.clone())
             }
             Unpack(_, varname, box val, box term) if val.is_val() => {
                 match val {
                     Pack(_, impls, _) => {
                         let val = Term::Record(impls.clone());
-                        ctx.push(varname.clone(), val.clone());
+                        ctx.add_val(varname, val.clone());
                         Ok(term.clone())
                     }
                     _ => panic!("type checking should catch this"),
@@ -148,14 +151,14 @@ impl EvalStep<Term, EvalError> for Term {
 }
 
 // implement Eval directly for type since it is relatively simple
-impl Eval<Type, TypeError> for Type {
+impl Eval<Type, Kind, TypeError> for Type {
     fn eval(&self, ctx: &mut TypeContext) -> Result<Type, TypeError> {
         match self {
             t @ Type::Bool | t @ Type::Int | t @ Type::TyAbs(_, _, _) => {
                 Ok(t.clone())
             }
             Type::Var(s) | Type::BoundedVar(s, _) => {
-                ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
+                ctx.get_val(s).ok_or(TypeError::NameError(s.to_string()))
             }
             Type::Arr(ref from, ref to) => Ok(Type::Arr(
                 Box::new(from.eval(ctx)?),
@@ -163,13 +166,13 @@ impl Eval<Type, TypeError> for Type {
             )),
             Type::Record(fields) => Ok(Type::Record(fields.eval(ctx)?)),
             Type::All(s, ref ty) => {
-                ctx.push(s.clone(), Type::Var(s.clone()));
+                ctx.add_val(s, Type::Var(s.clone()));
                 let result = Ok(Type::All(s.clone(), Box::new(ty.eval(ctx)?)));
                 ctx.pop();
                 result
             }
             Type::BoundedAll(s, ref ty, ref bound) => {
-                ctx.push(s.clone(), Type::Var(s.clone()));
+                ctx.add_val(s, Type::Var(s.clone()));
                 let result = Ok(Type::BoundedAll(
                     s.clone(),
                     Box::new(ty.eval(ctx)?),
@@ -179,7 +182,7 @@ impl Eval<Type, TypeError> for Type {
                 result
             }
             Type::Some(s, sigs) => {
-                ctx.push(s.clone(), Type::Var(s.clone()));
+                ctx.add_val(s, Type::Var(s.clone()));
                 let result = Ok(Type::Some(s.clone(), sigs.eval(ctx)?));
                 ctx.pop();
                 result
@@ -200,12 +203,11 @@ impl Eval<Type, TypeError> for Type {
 // its own function here.
 pub fn eval_type(
     ty: &Type,
-    tyctx: &mut TypeContext,
+    ctx: &mut TypeContext,
 ) -> Result<(Type, Kind), TypeError> {
-    let mut kctx = KindContext::empty();
-    kindcheck(ty, &mut kctx)
+    kindcheck(ty, ctx)
         .map_err(|e| TypeError::KindError(e.to_string()))
-        .and_then(|kind| ty.eval(tyctx).map(|ty| (ty, kind)))
+        .and_then(|kind| ty.eval(ctx).map(|ty| (ty, kind)))
 }
 
 #[cfg(test)]
