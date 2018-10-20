@@ -7,6 +7,8 @@ use errors::TypeError;
 use syntax::{Substitutable, Term, Type};
 use typecheck::simple::Resolve;
 
+export_kindless_typechecker!(typecheck);
+
 pub fn typecheck(
     term: &Term,
     context: &mut Context,

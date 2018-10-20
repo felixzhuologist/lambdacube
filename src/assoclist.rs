@@ -1,12 +1,17 @@
-// Bare bones implementation of an association list. We use an assoc list
-// instead of a std::collections::HashMap since currently performance is not a
-// concern and to make the compiled web assembly as small as possible
 use errors::TypeError;
 use eval::{Eval, EvalStep};
 use std::fmt;
 use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::simple::Resolve;
 
+// we esssentially need to store 4 things:
+// 1. the value of term variables (e.g. "x" has value 3)
+// 2. the type of term variables (e.g. "x" has type Int)
+// 3. the value of type variables (e.g. "X" represents an Int)
+// 4. the kind of type variables (e.g. "X" has kind *)
+// items 2 and 3 both have the same type (String -> Type) and their set of valid
+// keys are disjoint so we store both of them in TypeContext. this might be a bit
+// confusing but it keeps the code simpler for now (I think)
 pub type TermContext = AssocList<String, Term>;
 pub type TypeContext = AssocList<String, Type>;
 pub type KindContext = AssocList<String, Kind>;
@@ -68,6 +73,18 @@ impl AssocList<String, Term> {
         ctx: &mut TypeContext,
     ) -> Result<AssocList<String, Type>, TypeError> {
         self.map_val(|ty| tc(ty, ctx))
+    }
+}
+
+impl AssocList<String, Term> {
+    pub fn blabla(
+        &self,
+        tc: fn(&Term, &mut TypeContext, &mut KindContext)
+            -> Result<Type, TypeError>,
+        type_ctx: &mut TypeContext,
+        kind_ctx: &mut KindContext,
+    ) -> Result<AssocList<String, Type>, TypeError> {
+        self.map_val(|ty| tc(ty, type_ctx, kind_ctx))
     }
 }
 

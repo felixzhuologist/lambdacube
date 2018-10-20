@@ -1,15 +1,14 @@
-use assoclist::{TermContext, TypeContext};
+use assoclist::{KindContext, TermContext, TypeContext};
 use errors::TypeError;
-use eval::Eval;
-use syntax::{Binder, Command, Term, Type};
+use eval::{eval_type, Eval};
+use syntax::{Binder, Command, Kind, Term, Type};
 
-type TypeChecker = fn(&Term, &mut TypeContext) -> Result<Type, TypeError>;
+type TypeChecker = fn(&Term, &mut TypeContext, &mut KindContext) -> Result<Type, TypeError>;
 
 pub struct Program {
     term_ctx: TermContext,
-    // TODO: since type alias names and variable names have no overlap, ty_ctx
-    // is used to store both. should probably separate them at some point
     ty_ctx: TypeContext,
+    kind_ctx: KindContext,
     typecheck: TypeChecker,
 }
 
@@ -18,13 +17,15 @@ impl Program {
         Program {
             term_ctx: TermContext::empty(),
             ty_ctx: TypeContext::empty(),
-            typecheck: ::typecheck::simple::typecheck,
+            kind_ctx: KindContext::empty(),
+            typecheck: ::typecheck::simple::typecheck_top,
         }
     }
 
     pub fn reset(&mut self) {
         self.term_ctx = TermContext::empty();
         self.ty_ctx = TypeContext::empty();
+        self.kind_ctx = KindContext::empty();
     }
 
     pub fn set_typechecker(&mut self, tc: TypeChecker) {
@@ -81,21 +82,21 @@ impl Program {
                 self.eval_term(t).map(|(val, ty)| {
                     self.term_ctx.push(s.clone(), val);
                     self.ty_ctx.push(s.clone(), ty);
-                    ()
                 })
             }
-            Binder::TyBind(s, ty) => {
-                self.ty_ctx.push(s.clone(), ty);
-                Ok(())
+            Binder::TyBind(ref s, ref ty) => {
+                self.eval_type(ty).map(|(ty, kind)| {
+                    self.ty_ctx.push(s.clone(), ty);
+                    self.kind_ctx.push(s.clone(), kind);
+                })
             }
             Binder::ModuleBind(ref var, ref tyvar, ref module) => {
                 self.eval_term(module).map(|(val, ty)| {
                     if let Term::Pack(witness, impls, _) = val {
                         self.term_ctx.push(var.clone(), Term::Record(impls));
                         self.ty_ctx.push(var.clone(), ty);
-                        // TODO: should this be added to scope?
                         self.ty_ctx.push(tyvar.clone(), witness);
-                        ()
+                        self.kind_ctx.push(tyvar.clone(), Kind::Star);
                     }
                 })
             }
@@ -103,13 +104,18 @@ impl Program {
     }
 
     fn eval_term(&mut self, ast: &Term) -> Result<(Term, Type), String> {
-        (self.typecheck)(ast, &mut self.ty_ctx)
+        (self.typecheck)(ast, &mut self.ty_ctx, &mut self.kind_ctx)
             .map_err(|e| e.to_string())
             .and_then(|type_| {
                 ast.eval(&mut self.term_ctx)
                     .map(|val| (val, type_))
                     .map_err(|e| e.to_string())
             })
+    }
+
+    fn eval_type(&mut self, ty: &Type) -> Result<(Type, Kind), String> {
+        eval_type(ty, &mut self.ty_ctx, &mut self.kind_ctx)
+            .map_err(|e| e.to_string())
     }
 }
 

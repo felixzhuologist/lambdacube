@@ -13,6 +13,7 @@ pub mod kindcheck;
 pub mod program;
 pub mod syntax;
 pub mod test_grammar;
+#[macro_use]
 pub mod typecheck;
 pub mod wasm;
 

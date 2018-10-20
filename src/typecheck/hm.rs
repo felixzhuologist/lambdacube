@@ -4,6 +4,8 @@ use errors::TypeError;
 use syntax::{Term, Type};
 use typecheck::simple::Resolve;
 
+export_kindless_typechecker!(typecheck);
+
 pub type Constraints = Vec<(Type, Type)>;
 
 pub fn typecheck(

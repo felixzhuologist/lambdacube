@@ -4,6 +4,8 @@ use eval::Eval;
 use std::marker;
 use syntax::{Term, Type};
 
+export_kindless_typechecker!(typecheck);
+
 pub fn typecheck(
     term: &Term,
     context: &mut Context,

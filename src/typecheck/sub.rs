@@ -3,6 +3,8 @@ use errors::TypeError;
 use syntax::{Substitutable, Term, Type};
 use typecheck::simple::Resolve;
 
+export_kindless_typechecker!(typecheck);
+
 pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
     match term {
         Term::Bool(_) => Ok(Type::Bool),

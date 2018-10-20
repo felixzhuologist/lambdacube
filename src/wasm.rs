@@ -17,11 +17,11 @@ pub fn eval_program(code: &str) -> String {
 pub fn set_typechecker(serialized: u8) {
     unsafe {
         PROGRAM.set_typechecker(match serialized {
-            0b0000_0000 => ::typecheck::simple::typecheck,
-            0b0000_0001 => ::typecheck::sub::typecheck,
-            0b0000_0010 => ::typecheck::hm::typecheck,
-            0b0000_0100 => ::typecheck::sysf::typecheck,
-            0b0000_0101 => ::typecheck::fsub::typecheck,
+            0b0000_0000 => ::typecheck::simple::typecheck_top,
+            0b0000_0001 => ::typecheck::sub::typecheck_top,
+            0b0000_0010 => ::typecheck::hm::typecheck_top,
+            0b0000_0100 => ::typecheck::sysf::typecheck_top,
+            0b0000_0101 => ::typecheck::fsub::typecheck_top,
             0b0000_1000 => ::typecheck::omega::typecheck,
             _ => unimplemented!(),
         })

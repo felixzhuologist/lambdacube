@@ -201,9 +201,9 @@ impl Eval<Type, TypeError> for Type {
 pub fn eval_type(
     ty: &Type,
     tyctx: &mut TypeContext,
+    kindctx: &mut KindContext,
 ) -> Result<(Type, Kind), TypeError> {
-    let mut kctx = KindContext::empty();
-    kindcheck(ty, &mut kctx)
+    kindcheck(ty, kindctx)
         .map_err(|e| TypeError::KindError(e.to_string()))
         .and_then(|kind| ty.eval(tyctx).map(|ty| (ty, kind)))
 }
