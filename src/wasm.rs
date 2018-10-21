@@ -23,6 +23,7 @@ pub fn set_typechecker(serialized: u8) {
             0b0000_0100 => ::typecheck::sysf::typecheck_top,
             0b0000_0101 => ::typecheck::fsub::typecheck_top,
             0b0000_1000 => ::typecheck::omega::typecheck,
+            0b0000_1100 => ::typecheck::fomega::typecheck,
             _ => unimplemented!(),
         })
     }

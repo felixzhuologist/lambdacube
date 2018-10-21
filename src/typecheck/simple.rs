@@ -83,6 +83,7 @@ pub fn typecheck(
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
+        | Term::KindedTyAbs(_, _, _)
         | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
@@ -113,7 +114,9 @@ pub fn has_ty_operators(ty: &Type) -> bool {
             .inner
             .iter()
             .any(|(_, ref val)| has_ty_operators(val)),
-        Type::All(_, ref fun) => has_ty_operators(fun),
+        Type::All(_, ref fun) | Type::KindedAll(_, ref fun, _) => {
+            has_ty_operators(fun)
+        }
         Type::BoundedAll(_, ref l, ref r) | Type::Arr(ref l, ref r) => {
             has_ty_operators(l) || has_ty_operators(r)
         }

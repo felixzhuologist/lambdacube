@@ -49,6 +49,7 @@ impl EvalStep<Term, EvalError> for Term {
                 Ok(body.clone().applysubst(&argname, arg))
             }
             TyApp(box BoundedTyAbs(_, box body, _), _)
+            | TyApp(box KindedTyAbs(_, box body, _), _)
             | TyApp(box TyAbs(_, box body), _) => Ok(body.clone()),
             App(func, box arg) if func.is_val() => {
                 Ok(App(func.clone(), Box::new(arg.eval_step(ctx)?)))
@@ -178,6 +179,16 @@ impl Eval<Type, TypeError> for Type {
                 ctx.pop();
                 result
             }
+            Type::KindedAll(s, ref ty, kind) => {
+                ctx.push(s.clone(), Type::Var(s.clone()));
+                let result = Ok(Type::KindedAll(
+                    s.clone(),
+                    Box::new(ty.eval(ctx)?),
+                    kind.clone(),
+                ));
+                ctx.pop();
+                result
+            }
             Type::Some(s, sigs) => {
                 ctx.push(s.clone(), Type::Var(s.clone()));
                 let result = Ok(Type::Some(s.clone(), sigs.eval(ctx)?));
@@ -288,6 +299,7 @@ mod tests {
         assert_eq!(eval_term("fun[X] (x: X) -> x"), "<fun>");
         assert_eq!(eval_term("let f = fun[X] (x: X) -> x in f[Int]"), "<fun>");
         assert_eq!(eval_term("let f = fun[X] (x: X) -> x in f[Int] 0"), "0");
+        assert_eq!(eval_term("let f = fun[X: *] (x: X) -> x in f[Int] 0"), "0");
         assert_eq!(
             eval_term(
                 "let f = fun[X <: {a: Int}] (x: X) -> {a=x, b=(x.a + 1)} \

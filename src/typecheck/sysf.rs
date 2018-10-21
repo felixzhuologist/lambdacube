@@ -126,9 +126,9 @@ pub fn typecheck(
                 Err(TypeError::ExpectedSome)
             }
         }
-        Term::InfAbs(_, _) | Term::BoundedTyAbs(_, _, _) => {
-            Err(TypeError::Unsupported)
-        }
+        Term::InfAbs(_, _)
+        | Term::BoundedTyAbs(_, _, _)
+        | Term::KindedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
 

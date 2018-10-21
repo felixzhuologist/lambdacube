@@ -1,8 +1,11 @@
+// TODO: kinded existentials
+
 use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
 use eval;
 use std::marker;
-use syntax::{Kind, Term, Type};
+use syntax::{Substitutable, Kind, Term, Type};
+use kindcheck::kindcheck;
 
 pub fn typecheck(
     term: &Term,
@@ -29,6 +32,17 @@ pub fn typecheck(
             type_ctx.pop();
             result
         }
+        Term::KindedTyAbs(param, box body, kind) => {
+            type_ctx.push(param.clone(), Type::Var(param.clone()));
+            kind_ctx.push(param.clone(), Kind::Star);
+            let result = Ok(Type::KindedAll(
+                param.clone(),
+                Box::new(typecheck(body, type_ctx, kind_ctx)?),
+                kind.clone(),
+            ));
+            type_ctx.pop();
+            result
+        }
         Term::App(box func, box val) => {
             match typecheck(func, type_ctx, kind_ctx)? {
                 Type::Arr(box in_type, box out_type) => {
@@ -40,6 +54,20 @@ pub fn typecheck(
                 _ => Err(TypeError::FuncApp),
             }
         }
+        Term::TyApp(box func, ty) => {
+            let expected = kindcheck(ty, kind_ctx)
+                .map_err(|e| TypeError::KindError(e.to_string()))?;
+            match typecheck(func, type_ctx, kind_ctx)? {
+                Type::KindedAll(s, box body, kind) => {
+                    if kind != expected {
+                        Err(TypeError::KindMismatch(expected, kind.clone()))
+                    } else {
+                        Ok(body.clone().applysubst(&s, ty))
+                    }
+                }
+                _ => Err(TypeError::TyFuncApp),
+            }
+        },
         Term::Arith(box left, op, box right) => match (
             typecheck(left, type_ctx, kind_ctx)?,
             typecheck(right, type_ctx, kind_ctx)?,
@@ -83,11 +111,9 @@ pub fn typecheck(
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::TyAbs(_, _)
-        | Term::TyApp(_, _)
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::KindedTyAbs(_, _, _)
         | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
@@ -134,14 +160,13 @@ pub mod tests {
 
     #[test]
     fn e2e_type() {
-        let tyfun = "tyfun (X: *) => X -> X";
         assert_eq!(
-            typecheck_code(&format!("fun (x: {}) -> x", tyfun)),
-            "Values can only have proper types"
+            typecheck_code("(fun[X: *] (x: X) -> x)[Int]"),
+            "(Int -> Int)"
         );
         assert_eq!(
-            typecheck_code(&format!("fun (x: ({}) Int) -> x", tyfun)),
-            "((Int -> Int) -> (Int -> Int))"
+            typecheck_code("(fun[X: * -> *] (x: X) -> x)[Int]"),
+            "Expected kind of * but got (* -> *)"
         );
     }
 }

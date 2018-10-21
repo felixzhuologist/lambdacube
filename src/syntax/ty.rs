@@ -15,8 +15,10 @@ pub enum Type {
     All(String, Box<Type>),
     // This could encompass the All type by putting Top as the second type argument
     // but with the way Terms and Types are shared across all typecheckers it
-    // is probably simpler to keep them separate for now
+    // is probably simpler to keep them separate for now. It also probably greatly
+    // increase the size of the generate parser
     BoundedAll(String, Box<Type>, Box<Type>),
+    KindedAll(String, Box<Type>, Kind),
     // The second parameter is a general Type in the TAPL implementation but
     // currently it's only possible to instantiate a Type::Some with a Record type
     // anyways so use an AssocList directly
@@ -51,6 +53,9 @@ impl fmt::Display for Type {
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
             Type::BoundedAll(ref s, ref ty, ref bound) => {
                 write!(f, "∀{} <: {}. {}", s, bound, ty)
+            }
+            Type::KindedAll(ref s, ref ty, ref kind) => {
+                write!(f, "∀{}: {}. {}", s, kind, ty)
             }
             Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
             Type::TyAbs(_, _, _) => write!(f, "<tyfun>"),
@@ -92,6 +97,11 @@ impl Substitutable<Type> for Type {
                 )
             } else {
                 BoundedAll(param, Box::new(body), Box::new(bound))
+            },
+            KindedAll(param, box body, bound) => if param != varname {
+                KindedAll(param, Box::new(body.applysubst(varname, var)), bound)
+            } else {
+                KindedAll(param, Box::new(body), bound)
             },
             Type::Some(param, sigs) => if param != varname {
                 Type::Some(param, sigs.applysubst(varname, var))

@@ -33,7 +33,7 @@ const features = [
 const combinations = [
     [true, false, true, false, false, false],
     [false, true, false, false, false, false],
-    [false, false, false, true, false, false],
+    [false, false, true, true, false, false],
 ];
 
 const updateOptions = () => {

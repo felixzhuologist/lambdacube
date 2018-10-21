@@ -27,6 +27,7 @@ pub enum TypeError {
     NameError(String),
     ArgMismatch(Type, Type),
     BoundArgMismatch(Type, Type),
+    KindMismatch(Kind, Kind),
     FuncApp,
     TyFuncApp,
     Arith(ArithOp, Type, Type),
@@ -69,6 +70,11 @@ impl fmt::Display for TypeError {
             TypeError::BoundArgMismatch(ref expected, ref actual) => write!(
                 f,
                 "Expected subtype of {} but got {}",
+                expected, actual
+            ),
+            TypeError::KindMismatch(ref expected, ref actual) => write!(
+                f,
+                "Expected kind of {} but got {}",
                 expected, actual
             ),
             TypeError::FuncApp => write!(f, "Tried to apply non function type"),
@@ -127,7 +133,7 @@ impl fmt::Display for KindError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             KindError::NameError(ref s) => {
-                write!(f, "eval error: variable {} not found", s)
+                write!(f, "type eval error: variable {} not found", s)
             }
             KindError::ArgMismatch(ref expected, ref actual) => write!(
                 f,

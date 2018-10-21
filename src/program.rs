@@ -3,7 +3,8 @@ use errors::TypeError;
 use eval::{eval_type, Eval};
 use syntax::{Binder, Command, Kind, Term, Type};
 
-type TypeChecker = fn(&Term, &mut TypeContext, &mut KindContext) -> Result<Type, TypeError>;
+type TypeChecker =
+    fn(&Term, &mut TypeContext, &mut KindContext) -> Result<Type, TypeError>;
 
 pub struct Program {
     term_ctx: TermContext,

@@ -13,6 +13,7 @@ macro_rules! export_kindless_typechecker(
     }
 ));
 
+pub mod fomega;
 pub mod fsub;
 pub mod hm;
 pub mod omega;

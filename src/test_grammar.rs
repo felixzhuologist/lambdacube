@@ -91,6 +91,16 @@ pub mod tests {
         );
         assert!(
             grammar::TypeParser::new()
+                .parse("forall X, Y <: Int . (X -> Y)")
+                .is_ok()
+        );
+        assert!(
+            grammar::TypeParser::new()
+                .parse("forall X: * -> *, Y . (X -> Y)")
+                .is_ok()
+        );
+        assert!(
+            grammar::TypeParser::new()
                 .parse("tyfun (X: * -> *) => X -> X")
                 .is_ok()
         );
@@ -239,6 +249,15 @@ pub mod tests {
                 .is_ok()
         );
         assert!(grammar::TermParser::new().parse("myfunc[X, Y] x y").is_ok());
+    }
+
+    #[test]
+    fn test_kinded_univ() {
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun[X: *] (x: X) -> x")
+                .is_ok()
+        );
     }
 
     #[test]

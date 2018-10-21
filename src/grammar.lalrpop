@@ -52,9 +52,11 @@ pub Term: Box<Term> = {
             .into_iter()
             .rev()
             .fold(func, |func, next_| match next_ {
+                (var, TypeParam::Regular) => Term::TyAbs(var, Box::new(func)),
                 (var, TypeParam::Bounded(bound)) =>
                     Term::BoundedTyAbs(var, Box::new(func), bound),
-                (var, TypeParam::Regular) => Term::TyAbs(var, Box::new(func)),
+                (var, TypeParam::Kinded(kind)) =>
+                    Term::KindedTyAbs(var, Box::new(func), kind),
             }))
     },
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
@@ -64,6 +66,7 @@ pub Term: Box<Term> = {
 TypeParam: (String, TypeParam) = {
     <s:TyIdent> => (s, TypeParam::Regular),
     <s:TyIdent> "<:" <bound:Type> => (s, TypeParam::Bounded(*bound)),
+    <s:TyIdent> ":" <k:Kind> => (s, TypeParam::Kinded(*k)),
 }
 
 TypedParams: Vec<(String, Box<Type>)> = {
@@ -159,11 +162,17 @@ FuncDef = {
 pub Type: Box<Type> = {
     ArrowType,
     // we assume parameters here are of kind *. would it be valid otherwise?
-    Forall <p:(<TyIdent>)+> "." <ty:Type> =>
+    Forall <p:NECommaSep<TypeParam>> "." <ty:Type> =>
         Box::new(p
             .into_iter()
             .rev()
-            .fold(*ty, |func, arg| Type::All(arg, Box::new(func)))
+            .fold(*ty, |func, arg| match arg {
+                (var, TypeParam::Regular) => Type::All(var, Box::new(func)),
+                (var, TypeParam::Bounded(bound)) =>
+                    Type::BoundedAll(var, Box::new(func), Box::new(bound)),
+                (var, TypeParam::Kinded(kind)) =>
+                    Type::KindedAll(var, Box::new(func), kind),
+            })
         ),
     "tyfun" <p:KindParams> "=>" <ty:Type> =>
         Box::new(p

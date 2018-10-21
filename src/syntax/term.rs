@@ -1,6 +1,6 @@
 use assoclist::AssocList;
 use std::fmt;
-use syntax::{Substitutable, Type};
+use syntax::{Kind, Substitutable, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term {
@@ -11,6 +11,8 @@ pub enum Term {
     Abs(String, Type, Box<Term>),
     /// type abstraction (function from type to term)
     TyAbs(String, Box<Term>),
+    /// type abstraction with higher order types
+    KindedTyAbs(String, Box<Term>, Kind),
     /// bounded type abstraction
     BoundedTyAbs(String, Box<Term>, Type),
     /// regular abstraction with inferred type
@@ -48,6 +50,7 @@ impl Term {
             | Term::Bool(_)
             | Term::Abs(_, _, _)
             | Term::TyAbs(_, _)
+            | Term::KindedTyAbs(_, _, _)
             | Term::BoundedTyAbs(_, _, _)
             | Term::InfAbs(_, _) => true,
             Term::Not(box t) => t.is_val(),
@@ -77,6 +80,7 @@ impl fmt::Display for Term {
             Term::Abs(_, _, _)
             | Term::InfAbs(_, _)
             | Term::TyAbs(_, _)
+            | Term::KindedTyAbs(_, _, _)
             | Term::BoundedTyAbs(_, _, _) => write!(f, "<fun>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::TyApp(ref func, ref arg) => write!(f, "{} [{}]", func, arg),
@@ -134,6 +138,10 @@ impl Substitutable<Term> for Term {
             TyAbs(param, box body) => {
                 let body = body.applysubst(varname, var);
                 TyAbs(param, Box::new(body))
+            }
+            KindedTyAbs(param, box body, kind) => {
+                let body = body.applysubst(varname, var);
+                KindedTyAbs(param, Box::new(body), kind)
             }
             BoundedTyAbs(param, box body, ty) => {
                 let body = body.applysubst(varname, var);
@@ -249,6 +257,8 @@ pub enum TypeParam {
     Regular,
     /// e.g. f[A <: Int, B <: {a: Int}, C <: Bool]
     Bounded(Type),
+    /// e.g. f[A: *, B: * -> *]
+    Kinded(Kind),
 }
 
 #[cfg(test)]

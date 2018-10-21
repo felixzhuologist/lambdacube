@@ -105,6 +105,7 @@ pub fn get_constraints(
         | Term::TyApp(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
+        | Term::KindedTyAbs(_, _, _)
         | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }

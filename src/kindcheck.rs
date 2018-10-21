@@ -9,6 +9,7 @@ pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
         | Type::Arr(_, _)
         | Type::Record(_)
         | Type::All(_, _)
+        | Type::KindedAll(_, _, _)
         | Type::BoundedAll(_, _, _)
         | Type::Some(_, _) => Ok(Kind::Star),
         Type::Var(s) => {
