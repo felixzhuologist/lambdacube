@@ -1,6 +1,6 @@
 use assoclist::TypeContext as Context;
 use errors::TypeError;
-use syntax::{Substitutable, Term, Type};
+use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::simple::Resolve;
 
 export_kindless_typechecker!(typecheck);
@@ -98,6 +98,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
 // TODO: return error for lookup failures instead of false?
 pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
     left == right || match (left, right) {
+        (_, Type::Top) => true,
         (Type::Record(fields1), Type::Record(fields2)) => fields2
             .inner
             .iter()
@@ -131,7 +132,29 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
             let tyfun2 = ty2.clone().applysubst(s2, bound2);
             is_subtype(&tyfun1, &tyfun2, ctx)
         }
+        (Type::TyAbs(s1, k1, box ty1), Type::TyAbs(s2, k2, box ty2)) => {
+            if k1 != k2 {
+                return false;
+            }
+            let placeholder_type = get_top(k1);
+            ctx.push(s1.clone(), placeholder_type.clone());
+            ctx.push(s2.clone(), placeholder_type);
+            let result = is_subtype(ty1, ty2, ctx);
+            ctx.pop();
+            ctx.pop();
+            result
+        }
         _ => false,
+    }
+}
+
+/// Returns the supertype with the given kind
+fn get_top(kind: &Kind) -> Type {
+    match kind {
+        Kind::Star => Type::Top,
+        Kind::Arr(box from, box to) => {
+            Type::TyAbs(String::from("_"), from.clone(), Box::new(get_top(to)))
+        }
     }
 }
 

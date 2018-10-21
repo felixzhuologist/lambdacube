@@ -5,6 +5,7 @@ use syntax::{Kind, Substitutable};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
+    Top,
     Bool,
     Int,
     Arr(Box<Type>, Box<Type>),
@@ -44,6 +45,7 @@ impl Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Type::Top => write!(f, "Top"),
             Type::Bool => write!(f, "Bool"),
             Type::Int => write!(f, "Int"),
             // TODO: parenthesize
@@ -68,7 +70,7 @@ impl Substitutable<Type> for Type {
     fn applysubst(self, varname: &str, var: &Type) -> Type {
         use self::Type::*;
         match self {
-            t @ Bool | t @ Int => t,
+            t @ Bool | t @ Int | t @ Top => t,
             Arr(box from, box to) => Arr(
                 Box::new(from.applysubst(varname, var)),
                 Box::new(to.applysubst(varname, var)),

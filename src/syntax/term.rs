@@ -13,7 +13,8 @@ pub enum Term {
     TyAbs(String, Box<Term>),
     /// type abstraction with higher order types
     KindedTyAbs(String, Box<Term>, Kind),
-    /// bounded type abstraction
+    /// bounded type abstraction. in systems with higher order types, the kind
+    /// is inferred from the bound
     BoundedTyAbs(String, Box<Term>, Type),
     /// regular abstraction with inferred type
     InfAbs(String, Box<Term>),

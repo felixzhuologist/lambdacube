@@ -6,6 +6,7 @@ pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
     match ty {
         Type::Bool
         | Type::Int
+        | Type::Top
         | Type::Arr(_, _)
         | Type::Record(_)
         | Type::All(_, _)

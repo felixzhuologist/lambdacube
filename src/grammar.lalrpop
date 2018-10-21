@@ -15,6 +15,7 @@ pub Command: Command = {
     <Term> => Command::Term(<>),
 }
 
+// TODO: allow sugared polymorphic function definition
 pub Binder: Binder = {
     "let" <s:Ident> "=" <t:Term> => Binder::VarBind(s, *t),
     "let" <s:Ident> <p:Params> "=" <t:Term> => {
@@ -198,6 +199,7 @@ AType: Box<Type> = {
         Box::new(Type::Record(AssocList::from_vec(<>))),
     "Bool" => Box::new(Type::Bool),
     "Int" => Box::new(Type::Int),
+    "Top" => Box::new(Type::Top),
     <TyIdent> => Box::new(Type::Var(<>)),
     "module" "sig" "type" <ty:TyIdent> <sigs:("val" <RecordFieldType>)+> "end" =>
         Box::new(Type::Some(ty, AssocList::from_vec(sigs))),

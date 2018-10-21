@@ -152,9 +152,10 @@ impl EvalStep<Term, EvalError> for Term {
 impl Eval<Type, TypeError> for Type {
     fn eval(&self, ctx: &mut TypeContext) -> Result<Type, TypeError> {
         match self {
-            t @ Type::Bool | t @ Type::Int | t @ Type::TyAbs(_, _, _) => {
-                Ok(t.clone())
-            }
+            t @ Type::Bool
+            | t @ Type::Int
+            | t @ Type::Top
+            | t @ Type::TyAbs(_, _, _) => Ok(t.clone()),
             Type::Var(s) | Type::BoundedVar(s, _) => {
                 ctx.lookup(s).ok_or(TypeError::NameError(s.to_string()))
             }

@@ -108,7 +108,11 @@ impl Resolve for Type {
 
 pub fn has_ty_operators(ty: &Type) -> bool {
     match ty {
-        Type::Bool | Type::Int | Type::Var(_) | Type::BoundedVar(_, _) => false,
+        Type::Bool
+        | Type::Int
+        | Type::Top
+        | Type::Var(_)
+        | Type::BoundedVar(_, _) => false,
         Type::TyAbs(_, _, _) | Type::TyApp(_, _) => true,
         Type::Record(fields) | Type::Some(_, fields) => fields
             .inner

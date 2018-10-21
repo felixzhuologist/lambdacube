@@ -3,8 +3,9 @@
 use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
 use kindcheck::kindcheck;
-use syntax::{Kind, Substitutable, Term, Type};
+use syntax::{Substitutable, Term, Type};
 use typecheck::omega::Simplify;
+use typecheck::sub::is_subtype;
 
 pub fn typecheck(
     term: &Term,
@@ -31,13 +32,19 @@ pub fn typecheck(
             type_ctx.pop();
             result
         }
-        Term::KindedTyAbs(param, box body, kind) => {
-            type_ctx.push(param.clone(), Type::Var(param.clone()));
-            kind_ctx.push(param.clone(), Kind::Star);
-            let result = Ok(Type::KindedAll(
+        Term::BoundedTyAbs(param, box body, bound) => {
+            let bound = bound.simplify(type_ctx, kind_ctx)?;
+            type_ctx.push(
+                param.clone(),
+                Type::BoundedVar(param.clone(), Box::new(bound.clone())),
+            );
+            let bound_kind = kindcheck(&bound, kind_ctx)
+                .map_err(|e| TypeError::KindError(e.to_string()))?;
+            kind_ctx.push(param.clone(), bound_kind);
+            let result = Ok(Type::BoundedAll(
                 param.clone(),
                 Box::new(typecheck(body, type_ctx, kind_ctx)?),
-                kind.clone(),
+                Box::new(bound),
             ));
             type_ctx.pop();
             result
@@ -53,15 +60,23 @@ pub fn typecheck(
                 _ => Err(TypeError::FuncApp),
             }
         }
-        Term::TyApp(box func, ty) => {
-            let expected = kindcheck(ty, kind_ctx)
-                .map_err(|e| TypeError::KindError(e.to_string()))?;
-            match typecheck(func, type_ctx, kind_ctx)? {
-                Type::KindedAll(s, box body, kind) => {
-                    if kind != expected {
-                        Err(TypeError::KindMismatch(expected, kind.clone()))
+        Term::TyApp(box func, argty) => {
+            let functy =
+                typecheck(func, type_ctx, kind_ctx).and_then(|ty| {
+                    ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))
+                })?;
+            match functy {
+                Type::All(s, box body) => {
+                    Ok(body.clone().applysubst(&s, argty))
+                }
+                Type::BoundedAll(s, box body, box bound) => {
+                    if !is_subtype(argty, &bound, type_ctx) {
+                        Err(TypeError::BoundArgMismatch(
+                            bound.clone(),
+                            argty.clone(),
+                        ))
                     } else {
-                        Ok(body.clone().applysubst(&s, ty))
+                        Ok(body.clone().applysubst(&s, argty))
                     }
                 }
                 _ => Err(TypeError::TyFuncApp),
@@ -113,7 +128,7 @@ pub fn typecheck(
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
+        | Term::KindedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -135,12 +150,12 @@ pub mod tests {
     #[test]
     fn e2e_type() {
         assert_eq!(
-            typecheck_code("(fun[X: *] (x: X) -> x)[Int]"),
+            typecheck_code("(fun[X <: Top] (x: X) -> x)[Int]"),
             "(Int -> Int)"
         );
         assert_eq!(
-            typecheck_code("(fun[X: * -> *] (x: X) -> x)[Int]"),
-            "Expected kind of * but got (* -> *)"
+            typecheck_code("(fun[X <: (Top -> Top)] (x: X) -> x)[Int]"),
+            "Expected subtype of (Top -> Top) but got Int"
         );
     }
 }
