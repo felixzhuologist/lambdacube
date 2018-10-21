@@ -241,6 +241,16 @@ impl fmt::Display for BoolOp {
     }
 }
 
+/// The possible type params of a polymorphic function
+// this is used in the grammar definitions but i'm not sure how to add generic
+// rust code inside the grammar file so sticking it here for now...
+pub enum TypeParam {
+    /// e.g. f[A, B, C]
+    Regular,
+    /// e.g. f[A <: Int, B <: {a: Int}, C <: Bool]
+    Bounded(Type),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,6 @@
 use assoclist::{AssocList};
 use syntax::{ArithOp, BoolOp, Term, Type, Kind, Command, Binder};
+use syntax::term::TypeParam;
 
 use std::str::FromStr;
 
@@ -51,16 +52,18 @@ pub Term: Box<Term> = {
             .into_iter()
             .rev()
             .fold(func, |func, next_| match next_ {
-                (var, Some(bound)) => Term::BoundedTyAbs(var, Box::new(func), *bound),
-                (var, None) => Term::TyAbs(var, Box::new(func)),
+                (var, TypeParam::Bounded(bound)) =>
+                    Term::BoundedTyAbs(var, Box::new(func), bound),
+                (var, TypeParam::Regular) => Term::TyAbs(var, Box::new(func)),
             }))
     },
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
 
-TypeParam: (String, Option<Box<Type>>) = {
-    <TyIdent> <("<:" <Type>)?>
+TypeParam: (String, TypeParam) = {
+    <s:TyIdent> => (s, TypeParam::Regular),
+    <s:TyIdent> "<:" <bound:Type> => (s, TypeParam::Bounded(*bound)),
 }
 
 TypedParams: Vec<(String, Box<Type>)> = {
