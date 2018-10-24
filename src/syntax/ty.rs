@@ -14,15 +14,9 @@ pub enum Type {
     // TODO: is this extra variant necessary?
     BoundedVar(String, Box<Type>),
     All(String, Box<Type>),
-    // This could encompass the All type by putting Top as the second type argument
-    // but with the way Terms and Types are shared across all typecheckers it
-    // is probably simpler to keep them separate for now. It also probably greatly
-    // increase the size of the generate parser
     BoundedAll(String, Box<Type>, Box<Type>),
     KindedAll(String, Box<Type>, Kind),
-    // The second parameter is a general Type in the TAPL implementation but
-    // currently it's only possible to instantiate a Type::Some with a Record type
-    // anyways so use an AssocList directly
+    // We only allow the value component of an existential to be a record
     Some(String, AssocList<String, Type>),
     TyAbs(String, Kind, Box<Type>),
     TyApp(Box<Type>, Box<Type>),

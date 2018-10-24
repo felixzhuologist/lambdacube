@@ -42,13 +42,20 @@ impl<K: Clone + PartialEq, V: Clone> AssocList<K, V> {
         self.inner.last()
     }
 
+    pub fn remove(&mut self, item: &K) -> Option<V> {
+        self.find(item).map(|idx| self.inner.remove(idx).1)
+    }
+
     pub fn lookup(&self, item: &K) -> Option<V> {
-        for (key, val) in self.inner.iter().rev() {
-            if key == item {
-                return Some(val.clone());
-            }
-        }
-        None
+        self.find(item).map(|idx| self.inner[idx].1.clone())
+    }
+
+    fn find(&self, item: &K) -> Option<usize> {
+        self.inner
+            .iter()
+            .rev()
+            .position(|(key, _)| key == item)
+            .map(|idx| self.inner.len() - 1 - idx)
     }
 
     pub fn map_val<T, E, F>(&self, mut func: F) -> Result<AssocList<K, T>, E>
@@ -85,6 +92,20 @@ impl AssocList<String, Term> {
         kind_ctx: &mut KindContext,
     ) -> Result<AssocList<String, Type>, TypeError> {
         self.map_val(|ty| tc(ty, type_ctx, kind_ctx))
+    }
+}
+
+impl fmt::Display for AssocList<String, Term> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.inner
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
     }
 }
 

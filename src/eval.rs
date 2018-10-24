@@ -40,9 +40,12 @@ where
 impl EvalStep<Term, EvalError> for Term {
     fn eval_step(&self, ctx: &mut TermContext) -> Result<Term, EvalError> {
         match self {
-            Not(box Bool(b)) => Ok(Bool(!b)),
+            Not(box Bool(b)) | Not(box QBool(b)) => Ok(Bool(!b)),
             Not(box t) => Ok(Not(Box::new(t.eval_step(ctx)?))),
-            App(box Abs(argname, _, box body), box arg) if arg.is_reduced() => {
+            App(box Abs(argname, _, box body), box arg)
+            | App(box QAbs(argname, _, box body), box arg)
+                if arg.is_reduced() =>
+            {
                 Ok(body.clone().applysubst(&argname, arg))
             }
             App(box InfAbs(argname, box body), box arg) if arg.is_reduced() => {
@@ -61,7 +64,10 @@ impl EvalStep<Term, EvalError> for Term {
                 Ok(TyApp(Box::new(func.eval_step(ctx)?), arg.clone()))
             }
             Var(s) => ctx.lookup(s).ok_or(EvalError::NameError(s.to_string())),
-            Arith(box Int(a), op, box Int(b)) => match op {
+            Arith(box Int(a), op, box Int(b))
+            | Arith(box QInt(a), op, box Int(b))
+            | Arith(box Int(a), op, box QInt(b))
+            | Arith(box QInt(a), op, box QInt(b)) => match op {
                 ArithOp::Mul => Ok(Int(a * b)),
                 ArithOp::Div => Ok(Int(a / b)),
                 ArithOp::Add => Ok(Int(a + b)),
@@ -84,7 +90,10 @@ impl EvalStep<Term, EvalError> for Term {
                 op.clone(),
                 right.clone(),
             )),
-            Logic(box Bool(a), op, box Bool(b)) => match op {
+            Logic(box Bool(a), op, box Bool(b))
+            | Logic(box QBool(a), op, box Bool(b))
+            | Logic(box Bool(a), op, box QBool(b))
+            | Logic(box QBool(a), op, box QBool(b)) => match op {
                 BoolOp::And => Ok(Bool(*a && *b)),
                 BoolOp::Or => Ok(Bool(*a || *b)),
             },
@@ -129,7 +138,7 @@ impl EvalStep<Term, EvalError> for Term {
                 Box::new(val.eval_step(ctx)?),
                 term.clone(),
             )),
-            Record(fields) => Ok(Record(fields.eval_step(ctx)?)),
+            Record(fields) | QRec(fields) => Ok(Record(fields.eval_step(ctx)?)),
             Proj(box t, key) if t.is_val() => match t {
                 Pack(_, fields, _) | Record(fields) => {
                     let key = key.to_string();
@@ -340,5 +349,11 @@ mod tests {
         assert_eq!(eval_ty_e2e("forall X . X -> X"), "∀X. (X -> X)");
         assert_eq!(eval_ty_e2e("tyfun (X: *) => X -> X"), "<tyfun>");
         assert_eq!(eval_ty_e2e("(tyfun (X: *) => X -> X) Int"), "(Int -> Int)");
+    }
+
+    #[test]
+    fn substructural() {
+        assert_eq!(eval_term("lin 1 + lin 2"), "3");
+        assert_eq!(eval_term("(lin fun (x: Int) -> x + 1) 3"), "4");
     }
 }
