@@ -162,9 +162,12 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
                 Err(TypeError::ExpectedSome)
             }
         }
-        Term::InfAbs(_, _) | Term::KindedTyAbs(_, _, _) => {
-            Err(TypeError::Unsupported)
-        }
+        Term::InfAbs(_, _)
+        | Term::KindedTyAbs(_, _, _)
+        | Term::QBool(_)
+        | Term::QInt(_)
+        | Term::QAbs(_, _, _)
+        | Term::QRec(_) => Err(TypeError::Unsupported),
     }
 }
 

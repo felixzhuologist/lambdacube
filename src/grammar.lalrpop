@@ -43,6 +43,10 @@ pub Term: Box<Term> = {
             (arg, Some(ty)) => Term::Abs(arg, *ty, Box::new(func)),
             (arg, None) => Term::InfAbs(arg, Box::new(func))
         })),
+    "lin" FuncDef <p:TypedParams> "->" <t:Term> =>
+        p.into_iter()
+            .rev()
+            .fold(t, |func, (arg, ty)| Box::new(Term::QAbs(arg, *ty, func))),
     FuncDef "[" <univ:NECommaSep<TypeParam>> "]" <p:TypedParams> "->" <body:Term> => {
         let func = p
             .into_iter()
@@ -102,10 +106,14 @@ PathTerm: Box<Term> = {
 ATerm: Box<Term> = {
     Ident => Box::new(Term::Var(<>)),
     Num => Box::new(Term::Int(<>)),
+    "lin" <Num> => Box::new(Term::QInt(<>)),
     Bool => Box::new(Term::Bool(<>)),
+    "lin" <Bool> => Box::new(Term::Bool(<>)),
     "(" <Term> ")",
     "{" <CommaSep<RecordField>> "}" =>
         Box::new(Term::Record(AssocList::from_vec(<>))),
+    "lin" "{" <CommaSep<RecordField>> "}" =>
+        Box::new(Term::QRec(AssocList::from_vec(<>))),
     // TODO: is there a way to not have parentheses w/o shift/reduce conflicts
     "module" "ops" "type" <ty:Type> <impls:("val" <RecordField>)+> "end" "as" "(" <asc:Type> ")" =>
         Box::new(Term::Pack(*ty, AssocList::from_vec(impls), *asc)),

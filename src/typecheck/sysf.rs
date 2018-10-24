@@ -128,7 +128,11 @@ pub fn typecheck(
         }
         Term::InfAbs(_, _)
         | Term::BoundedTyAbs(_, _, _)
-        | Term::KindedTyAbs(_, _, _) => Err(TypeError::Unsupported),
+        | Term::KindedTyAbs(_, _, _)
+        | Term::QBool(_)
+        | Term::QInt(_)
+        | Term::QAbs(_, _, _)
+        | Term::QRec(_) => Err(TypeError::Unsupported),
     }
 }
 

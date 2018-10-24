@@ -267,4 +267,19 @@ pub mod tests {
         assert!(grammar::KindParser::new().parse("* -> *").is_ok());
         assert!(grammar::KindParser::new().parse("* -> (* -> *)").is_ok());
     }
+
+    #[test]
+    fn substructural_qualifiers() {
+        assert!(grammar::TermParser::new().parse("lin 0").is_ok());
+        assert!(
+            grammar::TermParser::new()
+                .parse("lin {a=lin 0, b=true}")
+                .is_ok()
+        );
+        assert!(
+            grammar::TermParser::new()
+                .parse("fun (x: Int) -> x + 1")
+                .is_ok()
+        );
+    }
 }
