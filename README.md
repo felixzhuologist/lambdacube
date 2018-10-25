@@ -1,5 +1,7 @@
 ## [WIP] An implementation of the lambda cube (and other type stuff)
 
+Check it out at [https://typezoo.now.sh](https://typezoo.now.sh/)
+
 Install dependencies:
 ```
 npm install
