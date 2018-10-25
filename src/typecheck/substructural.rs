@@ -1,3 +1,6 @@
+// TODO: record spread operator (let {a, b, c} = {a=1, b=2, c=3})
+// TODO: other qualifiers? (affine, relevant, ordered)
+
 use assoclist::TypeContext as Context;
 use errors::TypeError;
 use syntax::{Term, Type};
@@ -28,35 +31,18 @@ pub fn typecheck(
                 }
             }).ok_or(TypeError::NameError(s.to_string())),
         Term::QAbs(param, type_, box body) => {
-            let ty = type_.resolve(context)?;
-            context.push(param.clone(), ty.clone());
-            // TODO: code reuse
-            let out_type = match typecheck(body, context) {
-                Err(TypeError::NameError(ref s)) if s == param => {
-                    return Err(TypeError::Linear(s.clone()))
-                }
-                result => result,
-            };
-            let result = Ok(Type::QArr(Box::new(ty), Box::new(out_type?)));
-            context.pop();
-            result
+            let in_ty = type_.resolve(context)?;
+            let out_ty = typecheck_scope(context, param, &in_ty, body)?;
+            Ok(Type::QArr(Box::new(in_ty), Box::new(out_ty)))
         }
         Term::Abs(param, type_, box body) => {
-            let ty = type_.resolve(context)?;
             if context.inner.iter().any(|(_, ty)| ty.is_qualified()) {
                 // TODO: more helpful error - pass closure maybe?
                 return Err(TypeError::AbsContainment);
             }
-            context.push(param.clone(), ty.clone());
-            let out_type = match typecheck(body, context) {
-                Err(TypeError::NameError(ref s)) if s == param => {
-                    return Err(TypeError::Linear(s.clone()))
-                }
-                result => result,
-            };
-            let result = Ok(Type::Arr(Box::new(ty), Box::new(out_type?)));
-            context.pop();
-            result
+            let in_ty = type_.resolve(context)?;
+            let out_ty = typecheck_scope(context, param, &in_ty, body)?;
+            Ok(Type::Arr(Box::new(in_ty), Box::new(out_ty)))
         }
         Term::App(box func, box val) => match typecheck(func, context)? {
             Type::Arr(box in_type, box out_type)
@@ -102,15 +88,7 @@ pub fn typecheck(
         }
         Term::Let(varname, box val, box term) => {
             let val_type = typecheck(val, context)?;
-            context.push(varname.clone(), val_type);
-            let result = match typecheck(term, context) {
-                Err(TypeError::NameError(ref s)) if s == varname => {
-                    return Err(TypeError::Linear(s.clone()))
-                }
-                result => result,
-            };
-            context.pop();
-            Ok(result?)
+            typecheck_scope(context, varname, &val_type, term)
         }
         Term::Record(fields) => {
             Ok(Type::Record(fields.map_typecheck(typecheck, context)?))
@@ -130,6 +108,39 @@ pub fn typecheck(
         | Term::BoundedTyAbs(_, _, _)
         | Term::QRec(_) => Err(TypeError::Unsupported),
     }
+}
+
+/// Add a variable to the context and evaluate the given term, ensuring that
+/// the variable is used the correct number of times. The context will have the
+/// same contents after the function returns as it did before calling it
+fn typecheck_scope(
+    context: &mut Context,
+    varname: &String,
+    vartype: &Type,
+    body: &Term,
+) -> Result<Type, TypeError> {
+    context.push(varname.clone(), vartype.clone());
+    // we don't assume unique names or use de bruijn indices so compare pointers
+    let ty_ptr = &context.inner.last().unwrap().1 as *const Type;
+    let body_type = match typecheck(body, context) {
+        Err(TypeError::NameError(ref s)) if s == varname => {
+            Err(TypeError::Linear(varname.clone()))
+        }
+        result => result,
+    }?;
+
+    let is_linear = vartype.is_linear_val();
+    let is_unused = context
+        .inner
+        .last()
+        .map_or(false, |(_, ty)| (ty as *const Type) == ty_ptr);
+
+    if is_linear && is_unused {
+        return Err(TypeError::Linear(varname.clone()));
+    } else if !is_linear {
+        context.pop();
+    }
+    Ok(body_type)
 }
 
 #[cfg(test)]
@@ -158,17 +169,37 @@ pub mod tests {
             typecheck_code(
                 "lin fun (x: lin Bool) ->
                     (lin fun (f: Bool -> lin Bool) -> lin true)
-                    (fun (y: Bool) -> x)"),
-            "Unrestricted functions cannot have linear variables in scope");
+                    (fun (y: Bool) -> x)"
+            ),
+            "Unrestricted functions cannot have linear variables in scope"
+        );
         assert_eq!(
             typecheck_code("let x = lin 1 in if true then x + 1 else x - 1"),
-            "Int");
+            "Int"
+        );
         assert_eq!(typecheck_code("let x = 1 in x + x"), "Int");
         assert_eq!(typecheck_code("fun (x: Int) -> x + 1"), "(Int -> Int)");
-        assert_eq!(typecheck_code("fun (x: lin Int) -> x + 1"), "(lin Int -> Int)");
+        assert_eq!(
+            typecheck_code("fun (x: lin Int) -> x + 1"),
+            "(lin Int -> Int)"
+        );
         assert_eq!(
             typecheck_code("fun (x: lin Int) -> x + x"),
-            "Linear variable x must be used exactly once");
-        assert_eq!(typecheck_code("lin fun (x: lin Int) -> x"), "lin (lin Int -> lin Int)");
+            "Linear variable x must be used exactly once"
+        );
+        assert_eq!(
+            typecheck_code("lin fun (x: lin Int) -> x"),
+            "lin (lin Int -> lin Int)"
+        );
+        assert_eq!(
+            typecheck_code("fun (x: lin Int) -> 0"),
+            "Linear variable x must be used exactly once"
+        );
+        assert_eq!(
+            typecheck_code(
+                "let x = lin 0 in let f = lin fun (x: lin Int) -> x in x"
+            ),
+            "lin Int"
+        );
     }
 }
