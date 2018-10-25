@@ -5,10 +5,14 @@ use syntax::{Kind, Type};
 pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
     match ty {
         Type::Bool
+        | Type::QBool
         | Type::Int
+        | Type::QInt
         | Type::Top
         | Type::Arr(_, _)
+        | Type::QArr(_, _)
         | Type::Record(_)
+        | Type::QRec(_)
         | Type::All(_, _)
         | Type::KindedAll(_, _, _)
         | Type::BoundedAll(_, _, _)

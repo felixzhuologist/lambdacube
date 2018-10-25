@@ -27,6 +27,7 @@ pub fn set_typechecker(serialized: u8) {
             0b0000_1101 => ::typecheck::fomsub::typecheck,
             // TODO: remove the possibility of subtyping and higher order only
             0b0000_1001 => ::typecheck::fomsub::typecheck,
+            0b0010_0000 => ::typecheck::substructural::typecheck_top,
             _ => unimplemented!(),
         })
     }

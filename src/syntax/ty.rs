@@ -20,6 +20,10 @@ pub enum Type {
     Some(String, AssocList<String, Type>),
     TyAbs(String, Kind, Box<Type>),
     TyApp(Box<Type>, Box<Type>),
+    QBool,
+    QInt,
+    QArr(Box<Type>, Box<Type>),
+    QRec(AssocList<String, Type>),
 }
 
 impl Type {
@@ -34,6 +38,19 @@ impl Type {
             Ok(self.clone())
         }
     }
+
+    pub fn is_qualified(&self) -> bool {
+        use self::Type::*;
+        match self {
+            QBool | QInt | QArr(_, _) | QRec(_) => true,
+            Top | Bool | Int | Var(_) | BoundedVar(_, _) => false,
+            Arr(ref l, ref r) => l.is_qualified() || r.is_qualified(),
+            Record(fields) => {
+                fields.inner.iter().any(|(_, v)| v.is_qualified())
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -41,10 +58,16 @@ impl fmt::Display for Type {
         match *self {
             Type::Top => write!(f, "Top"),
             Type::Bool => write!(f, "Bool"),
+            Type::QBool => write!(f, "lin Bool"),
             Type::Int => write!(f, "Int"),
+            Type::QInt => write!(f, "lin Int"),
             // TODO: parenthesize
             Type::Arr(ref from, ref to) => write!(f, "({} -> {})", from, to),
+            Type::QArr(ref from, ref to) => {
+                write!(f, "lin ({} -> {})", from, to)
+            }
             Type::Record(ref rec) => write!(f, "{{{}}}", rec),
+            Type::QRec(ref rec) => write!(f, "{{{}}}", rec),
             Type::BoundedVar(ref s, _) | Type::Var(ref s) => write!(f, "{}", s),
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
             Type::BoundedAll(ref s, ref ty, ref bound) => {
@@ -64,12 +87,17 @@ impl Substitutable<Type> for Type {
     fn applysubst(self, varname: &str, var: &Type) -> Type {
         use self::Type::*;
         match self {
-            t @ Bool | t @ Int | t @ Top => t,
+            t @ Bool | t @ Int | t @ Top | t @ QBool | t @ QInt => t,
             Arr(box from, box to) => Arr(
                 Box::new(from.applysubst(varname, var)),
                 Box::new(to.applysubst(varname, var)),
             ),
+            QArr(box from, box to) => QArr(
+                Box::new(from.applysubst(varname, var)),
+                Box::new(to.applysubst(varname, var)),
+            ),
             Record(fields) => Record(fields.applysubst(varname, var)),
+            QRec(fields) => QRec(fields.applysubst(varname, var)),
             Var(s) => if s == varname {
                 var.clone()
             } else {

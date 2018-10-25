@@ -193,6 +193,7 @@ pub Type: Box<Type> = {
 
 ArrowType: Box<Type> = {
     <AppType> "->" <ArrowType> => Box::new(Type::Arr(<>)),
+    "lin" "(" <AppType> "->" <AppType> ")" => Box::new(Type::QArr(<>)),
     AppType,
 }
 
@@ -205,8 +206,12 @@ AType: Box<Type> = {
     "(" <Type> ")",
     "{" <CommaSep<RecordFieldType>> "}" =>
         Box::new(Type::Record(AssocList::from_vec(<>))),
+    "lin" "{" <CommaSep<RecordFieldType>> "}" =>
+        Box::new(Type::QRec(AssocList::from_vec(<>))),
     "Bool" => Box::new(Type::Bool),
+    "lin Bool" => Box::new(Type::QBool),
     "Int" => Box::new(Type::Int),
+    "lin Int" => Box::new(Type::QInt),
     "Top" => Box::new(Type::Top),
     <TyIdent> => Box::new(Type::Var(<>)),
     "module" "sig" "type" <ty:TyIdent> <sigs:("val" <RecordFieldType>)+> "end" =>

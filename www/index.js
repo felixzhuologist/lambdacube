@@ -34,6 +34,7 @@ const combinations = [
     [true, false, true, false, false, false],
     [false, true, false, false, false, false],
     [true, false, true, true, false, false],
+    [true, false, false, false, false, true],
 ];
 
 const updateOptions = () => {
