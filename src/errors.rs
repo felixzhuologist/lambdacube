@@ -51,6 +51,8 @@ pub enum TypeError {
     KindError(String),
     // Tried to use a value that has a non proper type
     NonProper,
+    AbsContainment,
+    Linear(String),
 }
 
 impl fmt::Display for TypeError {
@@ -118,6 +120,8 @@ impl fmt::Display for TypeError {
             }
             TypeError::KindError(ref s) => write!(f, "{}", s),
             TypeError::NonProper => write!(f, "Values can only have proper types"),
+            TypeError::AbsContainment => write!(f, "Unrestricted functions cannot have linear variables in scope"),
+            TypeError::Linear(ref s) => write!(f, "Linear variable {} must be used exactly once", s),
         }
     }
 }

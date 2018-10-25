@@ -269,7 +269,7 @@ pub mod tests {
     }
 
     #[test]
-    fn substructural_qualifiers() {
+    fn substructural() {
         assert!(grammar::TermParser::new().parse("lin 0").is_ok());
         assert!(
             grammar::TermParser::new()
@@ -279,6 +279,17 @@ pub mod tests {
         assert!(
             grammar::TermParser::new()
                 .parse("fun (x: Int) -> x + 1")
+                .is_ok()
+        );
+        assert!(
+            grammar::TypeParser::new()
+                .parse("lin (Int -> lin Bool)")
+                .is_ok()
+        );
+        assert!(grammar::TypeParser::new().parse("lin (lin Bool").is_err());
+        assert!(
+            grammar::TypeParser::new()
+                .parse("lin {x: lin Int, b: Bool}")
                 .is_ok()
         );
     }

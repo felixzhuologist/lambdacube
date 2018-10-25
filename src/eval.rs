@@ -162,7 +162,9 @@ impl Eval<Type, TypeError> for Type {
     fn eval(&self, ctx: &mut TypeContext) -> Result<Type, TypeError> {
         match self {
             t @ Type::Bool
+            | t @ Type::QBool
             | t @ Type::Int
+            | t @ Type::QInt
             | t @ Type::Top
             | t @ Type::TyAbs(_, _, _) => Ok(t.clone()),
             Type::Var(s) | Type::BoundedVar(s, _) => {
@@ -172,7 +174,12 @@ impl Eval<Type, TypeError> for Type {
                 Box::new(from.eval(ctx)?),
                 Box::new(to.eval(ctx)?),
             )),
+            Type::QArr(ref from, ref to) => Ok(Type::QArr(
+                Box::new(from.eval(ctx)?),
+                Box::new(to.eval(ctx)?),
+            )),
             Type::Record(fields) => Ok(Type::Record(fields.eval(ctx)?)),
+            Type::QRec(fields) => Ok(Type::QRec(fields.eval(ctx)?)),
             Type::All(s, ref ty) => {
                 ctx.push(s.clone(), Type::Var(s.clone()));
                 let result = Ok(Type::All(s.clone(), Box::new(ty.eval(ctx)?)));

@@ -113,19 +113,25 @@ impl Resolve for Type {
 pub fn has_ty_operators(ty: &Type) -> bool {
     match ty {
         Type::Bool
+        | Type::QBool
         | Type::Int
+        | Type::QInt
         | Type::Top
         | Type::Var(_)
         | Type::BoundedVar(_, _) => false,
         Type::TyAbs(_, _, _) | Type::TyApp(_, _) => true,
-        Type::Record(fields) | Type::Some(_, fields) => fields
-            .inner
-            .iter()
-            .any(|(_, ref val)| has_ty_operators(val)),
+        Type::Record(fields) | Type::Some(_, fields) | Type::QRec(fields) => {
+            fields
+                .inner
+                .iter()
+                .any(|(_, ref val)| has_ty_operators(val))
+        }
         Type::All(_, ref fun) | Type::KindedAll(_, ref fun, _) => {
             has_ty_operators(fun)
         }
-        Type::BoundedAll(_, ref l, ref r) | Type::Arr(ref l, ref r) => {
+        Type::BoundedAll(_, ref l, ref r)
+        | Type::Arr(ref l, ref r)
+        | Type::QArr(ref l, ref r) => {
             has_ty_operators(l) || has_ty_operators(r)
         }
     }
