@@ -51,6 +51,14 @@ impl Type {
             _ => unimplemented!(),
         }
     }
+
+    pub fn is_linear_val(&self) -> bool {
+        use self::Type::*;
+        match self {
+            QBool | QInt | QRec(_) => true, // QArr has different type rules
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Type {
