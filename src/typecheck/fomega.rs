@@ -1,9 +1,13 @@
 // TODO: kinded existentials
+// TODO: make * kind implicit for type parameters? also error messages can get
+// confusing since fun[A, B] is valid syntax but will error at the type checking
+// stage as "unsupported type feature". it's unclear that the cause of the error
+// is that kinds must be provided explicitly here
 
 use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
 use kindcheck::kindcheck;
-use syntax::{Kind, Substitutable, Term, Type};
+use syntax::{Substitutable, Term, Type};
 use typecheck::omega::Simplify;
 
 pub fn typecheck(
@@ -22,7 +26,7 @@ pub fn typecheck(
             .lookup(s)
             .ok_or(TypeError::NameError(s.to_string())),
         Term::Abs(param, type_, box body) => {
-            let ty = type_.simplify(type_ctx, kind_ctx)?;
+            let ty = type_.simplify(param, type_ctx, kind_ctx)?;
             type_ctx.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
@@ -33,13 +37,14 @@ pub fn typecheck(
         }
         Term::KindedTyAbs(param, box body, kind) => {
             type_ctx.push(param.clone(), Type::Var(param.clone()));
-            kind_ctx.push(param.clone(), Kind::Star);
+            kind_ctx.push(param.clone(), kind.clone());
             let result = Ok(Type::KindedAll(
                 param.clone(),
                 Box::new(typecheck(body, type_ctx, kind_ctx)?),
                 kind.clone(),
             ));
             type_ctx.pop();
+            kind_ctx.pop();
             result
         }
         Term::App(box func, box val) => {
@@ -144,7 +149,48 @@ pub mod tests {
         );
         assert_eq!(
             typecheck_code("(fun[X: * -> *] (x: X) -> x)[Int]"),
-            "Expected kind of * but got (* -> *)"
+            "Term x must have kind * but has kind (* -> *)"
+        );
+
+        let pairtype =
+            "tyfun (Fst: *) (Snd: *) => ∀X: *. (Fst -> Snd -> X) -> X";
+        let pair =
+            "fun[Fst: *, Snd: *] (x: Fst) (y: Snd) -> (fun[X: *] (z: Fst -> Snd -> X) -> z x y)";
+        assert_eq!(
+            typecheck_code(pair),
+            "∀Fst: *. ∀Snd: *. (Fst -> (Snd -> ∀X: *. ((Fst -> (Snd -> X)) -> X)))");
+
+        let fst = format!(
+            "fun[Fst: *, Snd: *] (p: ({}) Fst Snd) -> p[Fst] (fun (x: Fst) (y: Snd) -> x)",
+            pairtype);
+        assert_eq!(
+            typecheck_code(&fst),
+            "∀Fst: *. ∀Snd: *. (∀X: *. ((Fst -> (Snd -> X)) -> X) -> Fst)");
+
+        let snd = format!(
+            "fun[Fst: *, Snd: *] (p: ({}) Fst Snd) -> p[Snd] (fun (x: Fst) (y: Snd) -> y)",
+            pairtype);
+        assert_eq!(
+            typecheck_code(&snd),
+            "∀Fst: *. ∀Snd: *. (∀X: *. ((Fst -> (Snd -> X)) -> X) -> Snd)");
+
+        assert_eq!(
+            typecheck_code(&format!("({})[Int, Bool] 1 true", pair)),
+            "∀X: *. ((Int -> (Bool -> X)) -> X)"
+        );
+        assert_eq!(
+            typecheck_code(&format!(
+                "({})[Int, Bool] (({})[Int, Bool] 1 true)",
+                fst, pair
+            )),
+            "Int"
+        );
+        assert_eq!(
+            typecheck_code(&format!(
+                "({})[Int, Bool] (({})[Int, Bool] 1 true)",
+                snd, pair
+            )),
+            "Bool"
         );
     }
 }

@@ -20,7 +20,7 @@ pub fn typecheck(
             .lookup(s)
             .ok_or(TypeError::NameError(s.to_string())),
         Term::Abs(param, type_, box body) => {
-            let ty = type_.simplify(type_ctx, kind_ctx)?;
+            let ty = type_.simplify(param, type_ctx, kind_ctx)?;
             type_ctx.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
@@ -99,6 +99,7 @@ pub fn typecheck(
 pub trait Simplify {
     fn simplify(
         &self,
+        varname: &String,
         type_ctx: &mut TypeContext,
         kind_ctx: &mut KindContext,
     ) -> Result<Self, TypeError>
@@ -109,13 +110,14 @@ pub trait Simplify {
 impl Simplify for Type {
     fn simplify(
         &self,
+        varname: &String,
         type_ctx: &mut TypeContext,
         kind_ctx: &mut KindContext,
     ) -> Result<Self, TypeError> {
         eval::eval_type(self, type_ctx, kind_ctx).and_then(|(ty, kind)| {
             match kind {
                 Kind::Star => Ok(ty),
-                _ => Err(TypeError::NonProper),
+                k => Err(TypeError::NonProper(varname.clone(), k)),
             }
         })
     }
@@ -141,7 +143,7 @@ pub mod tests {
         let tyfun = "tyfun (X: *) => X -> X";
         assert_eq!(
             typecheck_code(&format!("fun (x: {}) -> x", tyfun)),
-            "Values can only have proper types"
+            "Term x must have kind * but has kind (* -> *)"
         );
         assert_eq!(
             typecheck_code(&format!("fun (x: ({}) Int) -> x", tyfun)),

@@ -11,7 +11,6 @@ pub enum Type {
     Arr(Box<Type>, Box<Type>),
     Record(AssocList<String, Type>),
     Var(String),
-    // TODO: is this extra variant necessary?
     BoundedVar(String, Box<Type>),
     All(String, Box<Type>),
     BoundedAll(String, Box<Type>, Box<Type>),

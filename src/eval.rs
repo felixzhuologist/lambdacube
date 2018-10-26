@@ -330,7 +330,7 @@ mod tests {
                 val new = 1
                 val get = fun (x: Int) -> x
                 val inc = fun (x: Int) -> x + 1
-            end as 
+            end as
             (module sig
                 type Counter
                 val new : Counter
@@ -349,6 +349,49 @@ mod tests {
             pack
         );
         assert_eq!(eval_term(&open_use_ty), "<fun>");
+
+        {
+            let pair =
+                "fun (x: Int) (y: Int) -> (fun[X] (z: Int -> Int -> X) -> z x y)";
+            let pairtype = "∀X. ((Int -> (Int -> X)) -> X)";
+            let fst = format!(
+                "fun (p: {}) -> p[Int] (fun (x: Int) (y: Int) -> x)",
+                pairtype
+            );
+            let snd = format!(
+                "fun (p: {}) -> p[Int] (fun (x: Int) (y: Int) -> y)",
+                pairtype
+            );
+            assert_eq!(eval_term(&format!("({}) (({}) 1 2)", fst, pair)), "1");
+            assert_eq!(eval_term(&format!("({}) (({}) 1 2)", snd, pair)), "2");
+        }
+
+        {
+            let pair =
+                "fun[Fst: *, Snd: *] (x: Fst) (y: Snd) -> (fun[X: *] (z: Fst -> Snd -> X) -> z x y)";
+            let pairtype =
+                "tyfun (Fst: *) (Snd: *) => ∀X: *. (Fst -> Snd -> X) -> X";
+            let fst = format!(
+                "fun[Fst: *, Snd: *] (p: ({}) Fst Snd) -> p[Fst] (fun (x: Fst) (y: Snd) -> x)",
+                pairtype);
+            let snd = format!(
+                "fun[Fst: *, Snd: *] (p: ({}) Fst Snd) -> p[Snd] (fun (x: Fst) (y: Snd) -> y)",
+                pairtype);
+            assert_eq!(
+                eval_term(&format!(
+                    "({})[Int, Bool] (({})[Int, Bool] 1 true)",
+                    fst, pair
+                )),
+                "1"
+            );
+            assert_eq!(
+                eval_term(&format!(
+                    "({})[Int, Bool] (({})[Int, Bool] 1 true)",
+                    snd, pair
+                )),
+                "true"
+            );
+        }
     }
 
     #[test]

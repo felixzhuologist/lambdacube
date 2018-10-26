@@ -13,6 +13,7 @@ pub enum Term {
     Var(String),
     Int(i32),
     Abs(String, Type, Box<Term>),
+    // These take arbitrary terms but the grammar forces them to be abstractions
     TyAbs(String, Box<Term>),
     KindedTyAbs(String, Box<Term>, Kind),
     BoundedTyAbs(String, Box<Term>, Type),

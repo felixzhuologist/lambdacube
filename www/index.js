@@ -16,7 +16,7 @@ let counterADT = module ops
   val new = 1
   val get = fun (x: Int) -> x
   val inc = fun (x: Int) -> x + 1
-end as CounterADT;`
+end as (CounterADT);`
 
 const featureSelector = $('#feature-selector');
 const features = [

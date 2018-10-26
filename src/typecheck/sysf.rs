@@ -173,6 +173,36 @@ mod tests {
             typecheck_code("fun (f: forall X . X -> X) -> f[Int] 3"),
             "(∀X. (X -> X) -> Int)"
         );
+
+        let pair =
+            "fun (x: Int) (y: Int) -> (fun[X] (z: Int -> Int -> X) -> z x y)";
+        let pairtype = "∀X. ((Int -> (Int -> X)) -> X)";
+        assert_eq!(
+            typecheck_code(pair),
+            format!("(Int -> (Int -> {}))", pairtype)
+        );
+
+        let fst = format!(
+            "fun (p: {}) -> p[Int] (fun (x: Int) (y: Int) -> x)",
+            pairtype
+        );
+        assert_eq!(typecheck_code(&fst), format!("({} -> Int)", pairtype));
+
+        let snd = format!(
+            "fun (p: {}) -> p[Int] (fun (x: Int) (y: Int) -> y)",
+            pairtype
+        );
+        assert_eq!(typecheck_code(&snd), format!("({} -> Int)", pairtype));
+
+        assert_eq!(typecheck_code(&format!("({}) 1 2", pair)), pairtype);
+        assert_eq!(
+            typecheck_code(&format!("({}) (({}) 1 2)", fst, pair)),
+            "Int"
+        );
+        assert_eq!(
+            typecheck_code(&format!("({}) (({}) 1 2)", snd, pair)),
+            "Int"
+        );
     }
 
     #[test]

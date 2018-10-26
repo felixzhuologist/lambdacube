@@ -93,7 +93,6 @@ AppTerm: Box<Term> = {
     <univ:AppTerm> "[" <tys:NECommaSep<Type>> "]" => 
         Box::new(tys
             .into_iter()
-            .rev()
             .fold(*univ, |acc, ty| Term::TyApp(Box::new(acc), *ty))),
     AppTerm FactorOp PathTerm => Box::new(Term::Arith(<>)),
 }

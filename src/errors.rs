@@ -50,7 +50,7 @@ pub enum TypeError {
     // TODO: is there a better way to do this?
     KindError(String),
     // Tried to use a value that has a non proper type
-    NonProper,
+    NonProper(String, Kind),
     AbsContainment,
     Linear(String),
 }
@@ -119,7 +119,9 @@ impl fmt::Display for TypeError {
                     expected)
             }
             TypeError::KindError(ref s) => write!(f, "{}", s),
-            TypeError::NonProper => write!(f, "Values can only have proper types"),
+            TypeError::NonProper(ref v, ref k) => {
+                write!(f, "Term {} must have kind * but has kind {}", v, k)
+            }
             TypeError::AbsContainment => write!(f, "Unrestricted functions cannot have linear variables in scope"),
             TypeError::Linear(ref s) => write!(f, "Linear variable {} must be used exactly once", s),
         }

@@ -23,7 +23,7 @@ pub fn typecheck(
             .lookup(s)
             .ok_or(TypeError::NameError(s.to_string())),
         Term::Abs(param, type_, box body) => {
-            let ty = type_.simplify(type_ctx, kind_ctx)?;
+            let ty = type_.simplify(param, type_ctx, kind_ctx)?;
             type_ctx.push(param.clone(), ty.clone());
             let result = Ok(Type::Arr(
                 Box::new(ty),
@@ -33,7 +33,7 @@ pub fn typecheck(
             result
         }
         Term::BoundedTyAbs(param, box body, bound) => {
-            let bound = bound.simplify(type_ctx, kind_ctx)?;
+            let bound = bound.simplify(param, type_ctx, kind_ctx)?;
             type_ctx.push(
                 param.clone(),
                 Type::BoundedVar(param.clone(), Box::new(bound.clone())),
