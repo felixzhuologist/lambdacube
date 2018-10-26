@@ -16,23 +16,78 @@
   <body>
     <script src="dist/jqconsole.min.js"></script>
     <script src="./index.js"></script>
-    <ul class="nav justify-content-center">
-      <li class="nav-item">
-        <select
-          class="selectpicker show-tick"
-          id="feature-selector"
-          multiple
-          title="Pick some type features..."
-        >
-        </select>
-      </li>
-      <li class="nav-item">
-        <button type="button" class="btn btn-light" id="batch-submit">Run</button>
-      </li>
-    </ul>
-    <div class="container-fluid">
-      <div class="row">
-        <div class="col">
+    <nav class="navbar navbar-expand-lg justify-content-between">
+      <div class="navbrand">
+        <span class="navbar-brand mb-0 h1">Type Zoo</span>
+      </div>
+      <div class="navactions">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <select
+              class="selectpicker show-tick"
+              id="feature-selector"
+              multiple
+              title="Pick some type features..."
+            >
+            </select>
+          </li>
+          <li class="nav-item">
+            <button type="button" class="btn btn-light" id="batch-submit">Run</button>
+          </li>
+        </ul>
+      </div>
+    </nav>
+    <div class="container-fluid h-100">
+      <div class="row h-100">
+        <div class="col-3">
+          <div class="sidebar simple">
+            <h6>Type Lambda Calculus</h6>
+
+            There are currently two basic primitive types: <code>Int</code> and
+            <code>Bool</code>:
+
+          </div>
+          <div class="sidebar subtyping">
+            <h6>Subtyping</h6>
+
+          </div>
+
+          <div class="sidebar hm">
+            <h6>Hindley-Milner</h6>
+
+          </div>
+
+          <div class="sidebar sysf">
+            <h6>System F</h6>
+
+          </div>
+
+          <div class="sidebar higher">
+            <h6>Higher Order Types</h6>
+
+          </div>
+
+          <div class="sidebar subtyping-sysf">
+            <h6>System F Sub</h6>
+
+          </div>
+
+          <div class="sidebar higher-sysf">
+            <h6>System F Omega</h6>
+
+          </div>
+
+          <div class="sidebar higher-subtyping-sysf higher-subtyping">
+            <h6>System F Omega Sub</h6>
+
+          </div>
+
+          <div class="sidebar linear">
+            <h6>Linear Types</h6>
+
+          </div>
+        </div>
+        <div class="col" style="padding-left: 0">
           <div class="editor">
             <textarea id="batch-input"></textarea>
           </div>

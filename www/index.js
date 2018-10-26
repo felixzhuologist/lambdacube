@@ -57,6 +57,8 @@ const initOptions = () => {
     features.forEach((feature) => {
         featureSelector.append(new Option(feature.display, feature.value));
     });
+    $('.sidebar').hide();
+    $('.simple').show();
     updateOptions();
     featureSelector.selectpicker('refresh');
 }
@@ -71,22 +73,15 @@ const serialize_features = () => {
     return result;
 }
 
-featureSelector[0].addEventListener('change', event => {
-    selected = featureSelector.val();
-    features.forEach(feature => {
-        feature.enabled = selected.some(val => feature.value === val);
-    })
+const getCurrentSidebar = () => $(`.${getCurrentFeatureSetId()}`);
 
-    // TODO: default starter code for each combination?
-    let code = (selected.some((feat) => feat === 'sysf')) ? sysfText : '';
-    document.getElementById('batch-input').value = code;
-
-    // TODO: debounce this?
-    set_typechecker(serialize_features());
-    jqconsole.Reset();
-    startPrompt();
-    updateOptions();
-});
+const getCurrentFeatureSetId = () => {
+    let enabled = features
+        .filter(feature => feature.enabled)
+        .map(feature => feature.value);
+    enabled.sort();
+    return enabled.join('-') || 'simple';
+}
 
 const jqconsole = $('#console').jqconsole('', '❯❯❯ ');
 const startPrompt = () => {
@@ -98,11 +93,31 @@ const startPrompt = () => {
 };
 
 const submitButton = document.getElementById('batch-submit')
+
 submitButton.addEventListener('click', event => {
     const input = document.getElementById("batch-input").value;
     jqconsole.Reset();
     jqconsole.Write(eval_program(input) + '\n', 'jqconsole-output');
     startPrompt();
+});
+
+featureSelector[0].addEventListener('change', event => {
+    getCurrentSidebar().hide();
+    selected = featureSelector.val();
+    features.forEach(feature => {
+        feature.enabled = selected.some(val => feature.value === val);
+    })
+    getCurrentSidebar().show();
+
+    // TODO: default starter code for each combination?
+    let code = (selected.some((feat) => feat === 'sysf')) ? sysfText : '';
+    document.getElementById('batch-input').value = code;
+
+    // TODO: debounce this?
+    set_typechecker(serialize_features());
+    jqconsole.Reset();
+    startPrompt();
+    updateOptions();
 });
 
 TLN.append_line_numbers('batch-input');

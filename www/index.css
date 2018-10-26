@@ -1,5 +1,9 @@
+body, html {
+    height: 100%;
+}
+
 .editor {
-    height: 500px;
+    height: 100%;
 }
 
 .nav {
@@ -7,20 +11,36 @@
 }
 
 .nav-item {
-  padding-left: 10px;
-  padding-right: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.navactions {
+    padding-right: 40%;
+}
+
+.navbrand {
+    padding-left: 2%;
 }
 
 .col {
     margin: 0px;
 }
 
+.col-3 {
+    padding: 2% 0 2% 3%;
+}
+
+.sidebar {
+    display: none;
+}
+
 /* The console container element */
 #console {
-  position: absolute;
-  width: 95%;
-  height: 500px;
-  background-color:black;
+    position: absolute;
+    width: 95%;
+    height: 100%;
+    background-color:black;
 }
 /* The inner console element. */
 .jqconsole {
