@@ -31,6 +31,25 @@ body, html {
     padding: 2% 0 2% 3%;
 }
 
+.codeblock {
+    position: relative;
+}
+
+.run-snippet {
+    color: white !important;
+    position: absolute;
+    bottom: 0.5em;
+    right: 1em;
+    border-bottom: 1px solid #d4d4d4;
+    font-size: 0.7em;
+    z-index: 1;
+}
+
+.run-snippet:hover {
+    border-bottom-color: #a1a1a1;
+    cursor: pointer;
+}
+
 .sidebar {
     display: none;
 }
