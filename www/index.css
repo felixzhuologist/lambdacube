@@ -6,6 +6,28 @@ body, html {
     height: 100%;
 }
 
+/* TODO: get line wrap working */
+#editor {
+    margin-top: 0;
+    position: relative;
+    height: 100%;
+    white-space: pre-wrap;
+}
+
+#editor-content {
+    caret-color: white;
+    position: absolute;
+    left: 3.7em;
+    top: 0.8em;
+    color: rgba(0, 0, 0, 0);
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    width: calc(100% - 3.3em);
+    height: calc(100% - 0.8em);
+}
+
 .navbar {
     margin: 0.6em;
 }
@@ -23,14 +45,6 @@ body, html {
     padding-left: 2%;
 }
 
-.col {
-    margin: 0px;
-}
-
-.col-3 {
-    padding: 1% 0 2% 3%;
-}
-
 .codeblock {
     position: relative;
 }
@@ -38,11 +52,8 @@ body, html {
 .run-snippet {
     color: white !important;
     position: absolute;
-    bottom: 0.5em;
-    right: 1em;
     border-bottom: 1px solid #d4d4d4;
-    font-size: 0.7em;
-    z-index: 1;
+    z-index: 0;
 }
 
 .run-snippet:hover {
@@ -50,12 +61,25 @@ body, html {
     cursor: pointer;
 }
 
+.codeblock > .run-snippet {
+    bottom: 0.5em;
+    right: 1em;
+    font-size: 0.7em;
+}
+
+#editor > .run-snippet {
+    right: 1.2em;
+    top: 0.8em;
+    font-size: 1em;
+}
+
 /* The console container element */
 #console {
+    border-radius: 5px;
     position: absolute;
     width: 95%;
     height: 100%;
-    background-color:black;
+    background-color: #272822;
 }
 
 /* The inner console element. */

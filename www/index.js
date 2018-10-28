@@ -21,6 +21,10 @@ const Navbar = (props) => (
                 escapeClearsValue={true}
                 hideSelectedOptions={false}
                 onChange={(enabled) => { props.updateOptions(enabled); }}
+                // TODO: calling jqconsole.Reset() onChange causes the
+                // closeMenuOnSelect behaviour to not work, but this doesn't
+                // handle all possible updates either (e.g. delete a label)
+                onMenuClose={() => { props.resetConsole(); }}
                 name="features"
                 options={props.features}
                 className="basic-multi-select"
@@ -67,25 +71,22 @@ class App extends React.Component {
     }
 
     componentDidUpdate() {
-        this.jqconsole.Reset();
-        this.startPrompt();
         Prism.highlightAll();
     }
 
     startPrompt() {
         this.jqconsole.Prompt(true, (input) => {
-            let result = input ? this.props.eval_line(input) + '\n' : '';
+            let result = input ? this.props.evalLine(input) + '\n' : '';
             this.jqconsole.Write(result, 'jqconsole-output');
             this.startPrompt();
         })
     }
 
     updateOptions(enabled) {
-        this.props.set_typechecker(this.serializeFeatures(enabled));
+        this.props.setTypechecker(this.serializeFeatures(enabled));
 
         const valid = this.combinations.filter(vals =>
             enabled.every(({ id }) => vals[id]));
-        console.log(enabled.map(f => f.value).sort().join('-') || 'simple');
         this.setState((state) => ({
             sidebarId: enabled.map(f => f.value).sort().join('-') || 'simple',
             features: state.features.map((feature, i) => ({
@@ -99,21 +100,31 @@ class App extends React.Component {
         return enabled.map(({ id }) => 1 << id).reduce((l, r) => l | r, 0);
     }
 
+    evalProgram(code) {
+        this.jqconsole.Reset();
+        this.jqconsole.Write(this.props.evalProgram(code) + '\n', 'jqconsole-output');
+        this.startPrompt();
+    }
+
     render() {
         let Sidebar = this.props.sidebars[this.state.sidebarId];
         return ([
             <Navbar
                 features={this.state.features}
                 updateOptions={(enabled) => this.updateOptions(enabled)}
+                resetConsole={() => {
+                    this.jqconsole.Reset();
+                    this.startPrompt();
+                }}
                 key="nav"/>,
             <div className="row h-75" key="body">
-                <div className="col-3">
+                <div className="col-4" style={{ paddingLeft: '3%' }}>
                     <Sidebar />
                 </div>
-                <div className="col" style={{ paddingLeft: 0 }}>
-                    <Editor />
+                <div className="col-4">
+                    <Editor evalProgram={(code) => this.evalProgram(code)} />
                 </div>
-                <div className="col">
+                <div className="col-4">
                     <div id="console"></div>
                 </div>
             </div>
@@ -199,11 +210,68 @@ const SidebarLinear = () => (
     </div>
 )
 
-const Editor = () => (
-    <div className="editor">
-        <textarea id="batch-input"></textarea>
-    </div>
-)
+// A prism syntax highlighted textarea based on https://bit.ly/2D6KmPz
+// TODO: work beyond 20 lines
+class Editor extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { text: '' }
+    }
+
+    componentDidUpdate() {
+        Prism.highlightAll();
+    }
+
+    handleChange(event) {
+        this.setState({ text: event.target.value });
+    }
+
+    // indent instead of unfocus when tab is pressed
+    handleKeyDown(event) {
+        if (event.keyCode !== 9) {
+            return;
+        }
+        event.preventDefault();
+        let text = this.state.text;
+        let start = event.target.selectionStart;
+        let end = event.target.selectionEnd;
+        this.setState(
+            { text: text.substring(0, start) + '\t' + text.substring(end) },
+            () => {
+                this.refs.input.selectionStart = start + 1;
+                this.refs.input.selectionEnd = start + 1;
+            }
+        )
+    }
+
+    // TODO: would it be more robust to use setCaretPosition rather than CSS to
+    // keep the caret at the right spot?
+    render() {
+        return (
+            <div className="editor">
+                <pre id="editor" className="line-numbers">
+                    <code className="language-typezoo">
+                        {this.state.text}
+                    </code>
+                    <textarea
+                        ref="input"
+                        spellCheck={false}
+                        id="editor-content"
+                        value={this.state.text}
+                        onKeyDown={(e) => this.handleKeyDown(e)}
+                        onChange={(e) => this.handleChange(e)}
+                    ></textarea>
+                    <a
+                        className="run-snippet"
+                        onClick={() => this.props.evalProgram(this.state.text)}
+                    >
+                        Run
+                    </a>
+                </pre>
+            </div>
+        )
+    }
+}
 
 const sidebars = {
     simple: SidebarSimple,
@@ -220,19 +288,17 @@ const sidebars = {
 };
 
 const run = async () => {
+    const { eval_line, eval_program, set_typechecker } = await lib;
 
-const { eval_line, eval_program, set_typechecker } = await lib;
-
-ReactDOM.render(
-    <App
-        set_typechecker={set_typechecker}
-        eval_line={eval_line}
-        sidebars={sidebars}
-    />,
-    document.getElementById('root')
-)
-
-TLN.append_line_numbers('batch-input');
+    ReactDOM.render(
+        <App
+            setTypechecker={set_typechecker}
+            evalLine={eval_line}
+            evalProgram={eval_program}
+            sidebars={sidebars}
+        />,
+        document.getElementById('root')
+    )
 }
 
 run();
