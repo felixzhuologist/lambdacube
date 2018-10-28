@@ -7,106 +7,16 @@
     <link rel="stylesheet" href="dist/tln.min.css"/>
     <link rel="stylesheet" href="index.css"/>
     <link rel="stylesheet" href="dist/prism.css"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.2/css/bootstrap-select.min.css">
     <script src="dist/tln.min.js"></script>
     <script src="dist/prism.min.js"></script>
     <script src="prism.js"></script>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.2/js/bootstrap-select.min.js"></script>
   </head>
   <body>
     <script src="dist/jqconsole.min.js"></script>
     <script src="./index.js"></script>
-    <nav class="navbar navbar-expand-lg justify-content-between">
-      <div class="navbrand">
-        <span class="navbar-brand mb-0 h1">Type Zoo</span>
-      </div>
-      <div class="navactions">
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <select
-              class="selectpicker show-tick"
-              id="feature-selector"
-              multiple
-              title="Pick some type features..."
-            >
-            </select>
-          </li>
-          <li class="nav-item">
-            <button type="button" class="btn btn-light" id="batch-submit">Run</button>
-          </li>
-        </ul>
-      </div>
-    </nav>
-    <div class="container-fluid h-100">
-      <div class="row h-100">
-        <div class="col-3">
-          <div class="sidebar simple">
-            <h6>Typed Lambda Calculus</h6>
-
-            There are two primitive types, <code>Int</code> and
-            <code>Bool</code>:
-
-            <div class="codeblock">
-            <pre><code class="language-typezoo" id="int1">1 + 1
-true and false
-as
-let x = true in (if x then 0 else 1)
-fun (x: Int) -> x + 1</code></pre>
-            <a class="run-snippet">Run</a>
-            </div>
-          </div>
-          <div class="sidebar subtyping">
-            <h6>Subtyping</h6>
-
-          </div>
-
-          <div class="sidebar hm">
-            <h6>Hindley-Milner</h6>
-
-          </div>
-
-          <div class="sidebar sysf">
-            <h6>System F</h6>
-
-          </div>
-
-          <div class="sidebar higher">
-            <h6>Higher Order Types</h6>
-
-          </div>
-
-          <div class="sidebar subtyping-sysf">
-            <h6>System F Sub</h6>
-
-          </div>
-
-          <div class="sidebar higher-sysf">
-            <h6>System F Omega</h6>
-
-          </div>
-
-          <div class="sidebar higher-subtyping-sysf higher-subtyping">
-            <h6>System F Omega Sub</h6>
-
-          </div>
-
-          <div class="sidebar linear">
-            <h6>Linear Types</h6>
-
-          </div>
-        </div>
-        <div class="col" style="padding-left: 0">
-          <div class="editor">
-            <textarea id="batch-input"></textarea>
-          </div>
-        </div>
-        <div class="col">
-          <div id="console"></div>
-        </div>
-      </div>
+    <div id="root" class="container-fluid h-100">
     </div>
   </body>
 </html>
