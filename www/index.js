@@ -117,7 +117,7 @@ class App extends React.Component {
                     this.startPrompt();
                 }}
                 key="nav"/>,
-            <div className="row h-75" key="body">
+            <div className="row" key="body" style={{ height: 'calc(100% - 124px)' }}>
                 <div className="col-4" style={{ paddingLeft: '3%' }}>
                     <Sidebar />
                 </div>
@@ -127,7 +127,20 @@ class App extends React.Component {
                 <div className="col-4">
                     <div id="console"></div>
                 </div>
-            </div>
+            </div>,
+            <footer key="footer">
+                <div className="row">
+                    <div style={{ margin: 'auto' }}>
+                        <a
+                            target="_blank"
+                            href='http://www.recurse.com'
+                            title='Made with love at the Recurse Center'
+                            style={{ float: 'right' }}>
+                            <img src='https://bit.ly/2EPoFFg' height='20px'/>
+                        </a>
+                    </div>
+                </div>
+            </footer>
         ])
     }
 }
