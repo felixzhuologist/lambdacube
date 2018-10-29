@@ -12,7 +12,8 @@ pub fn typecheck(
     term: &Term,
     context: &mut Context,
 ) -> Result<Type, TypeError> {
-    let (ty, constraints) = get_constraints(term, context)?;
+    let mut constraints: Constraints = Vec::new();
+    let ty = get_constraints(term, context, &mut constraints)?;
     let sigma = unify(constraints).map_err(|_| TypeError::UnifyError)?;
     Ok(applysubst(ty, &sigma))
 }
@@ -22,83 +23,77 @@ pub fn typecheck(
 pub fn get_constraints(
     term: &Term,
     context: &mut Context,
-) -> Result<(Type, Constraints), TypeError> {
+    constraints: &mut Constraints,
+) -> Result<Type, TypeError> {
     match term {
-        Term::Bool(_) => Ok((Type::Bool, Vec::new())),
-        Term::Int(_) => Ok((Type::Int, Vec::new())),
+        Term::Bool(_) => Ok(Type::Bool),
+        Term::Int(_) => Ok(Type::Int),
         Term::Not(box t) => {
-            Ok((Type::Bool, vec![(typecheck(t, context)?, Type::Bool)]))
+            let inty = get_constraints(t, context, constraints)?;
+            constraints.push((inty, Type::Bool));
+            Ok(Type::Bool)
         }
         Term::Var(s) => match context.lookup(s) {
-            Some(type_) => Ok((type_, Vec::new())),
+            Some(type_) => Ok(type_),
             None => Err(TypeError::NameError(s.to_string())),
         },
         Term::Abs(param, type_, box body) => {
             let intype = type_.resolve(context).unwrap_or(type_.clone());
 
             context.push(param.clone(), intype.clone());
-            let (outtype, constr) = get_constraints(body, context)?;
+            let outtype = get_constraints(body, context, constraints)?;
             let result =
-                Ok((Type::Arr(Box::new(intype), Box::new(outtype)), constr));
+                Ok(Type::Arr(Box::new(intype), Box::new(outtype)));
             context.pop();
             result
         }
         Term::InfAbs(param, box body) => {
             let intype = Type::Var(pick_fresh_intype(&context));
             context.push(param.clone(), intype.clone());
-            let (outtype, constr) = get_constraints(body, context)?;
+            let outtype = get_constraints(body, context, constraints)?;
             let result =
-                Ok((Type::Arr(Box::new(intype), Box::new(outtype)), constr));
+                Ok(Type::Arr(Box::new(intype), Box::new(outtype)));
             context.pop();
             result
         }
         Term::App(box func, box val) => {
-            let (ty1, mut constr) = get_constraints(func, context)?;
-            let (ty2, constr2) = get_constraints(val, context)?;
-            constr.extend(constr2);
-            let return_type = Type::Var(pick_fresh_outtype(&constr));
-            constr.push((
+            let ty1 = get_constraints(func, context, constraints)?;
+            let ty2 = get_constraints(val, context, constraints)?;
+            let return_type = Type::Var(pick_fresh_outtype(constraints));
+            constraints.push((
                 ty1,
                 Type::Arr(Box::new(ty2), Box::new(return_type.clone())),
             ));
-            Ok((return_type, constr))
+            Ok(return_type)
         }
         // TODO: refactor shared code
         Term::Arith(box left, op, box right) => {
-            let (tyleft, mut constr) = get_constraints(left, context)?;
-            let (tyright, mut constr2) = get_constraints(right, context)?;
-            constr.extend(constr2);
-            constr.push((tyleft, Type::Int));
-            constr.push((tyright, Type::Int));
-
-            Ok((op.return_type(), constr))
+            let tyleft = get_constraints(left, context, constraints)?;
+            let tyright = get_constraints(right, context, constraints)?;
+            constraints.push((tyleft, Type::Int));
+            constraints.push((tyright, Type::Int));
+            Ok(op.return_type())
         }
         Term::Logic(box left, _, box right) => {
-            let (tyleft, mut constr) = get_constraints(left, context)?;
-            let (tyright, mut constr2) = get_constraints(right, context)?;
-            constr.extend(constr2);
-            constr.push((tyleft, Type::Bool));
-            constr.push((tyright, Type::Bool));
-
-            Ok((Type::Bool, constr))
+            let tyleft = get_constraints(left, context, constraints)?;
+            let tyright = get_constraints(right, context, constraints)?;
+            constraints.push((tyleft, Type::Bool));
+            constraints.push((tyright, Type::Bool));
+            Ok(Type::Bool)
         }
         Term::If(box cond, box if_, box else_) => {
-            let (tycond, mut constr) = get_constraints(cond, context)?;
-            let (tyif, constr1) = get_constraints(if_, context)?;
-            let (tyelse, constr2) = get_constraints(else_, context)?;
-            constr.extend(constr1);
-            constr.extend(constr2);
-            constr.push((tycond, Type::Bool));
-            constr.push((tyif.clone(), tyelse));
-
-            Ok((tyif, constr))
+            let tycond = get_constraints(cond, context, constraints)?;
+            let tyif = get_constraints(if_, context, constraints)?;
+            let tyelse = get_constraints(else_, context, constraints)?;
+            constraints.push((tycond, Type::Bool));
+            constraints.push((tyif.clone(), tyelse));
+            Ok(tyif)
         }
         Term::Let(varname, box val, box term) => {
-            let (tyval, mut constr) = get_constraints(val, context)?;
+            let tyval = get_constraints(val, context, constraints)?;
             context.push(varname.clone(), tyval);
-            let (tyres, constr2) = get_constraints(term, context)?;
-            constr.extend(constr2);
-            Ok((tyres, constr))
+            let tyres = get_constraints(term, context, constraints)?;
+            Ok(tyres)
         }
         Term::Record(_) | Term::Proj(_, _) => unimplemented!(),
         Term::TyAbs(_, _)
@@ -127,8 +122,8 @@ fn unify(mut constr: Constraints) -> Result<Context, ()> {
                 result.push(s, ty);
             }
             (Type::Arr(box ty11, box ty12), Type::Arr(box ty21, box ty22)) => {
-                constr.insert(0, (ty11, ty21));
-                constr.insert(0, (ty12, ty22));
+                constr.push((ty12, ty22));
+                constr.push((ty11, ty21));
             }
             (_, _) => return Err(()),
         }
@@ -249,6 +244,16 @@ mod tests {
         assert_eq!(
             typecheck_code("fun z y -> z (y true)"),
             "((X?0 -> X?1) -> ((Bool -> X?0) -> X?1))"
+        );
+        assert_eq!(
+            typecheck_code("fun f x -> f (f x)"), "((X' -> X') -> (X' -> X'))");
+        assert_eq!(
+            typecheck_code(
+                "let id_int = fun (x: Int) -> x in
+                let id_bool = fun(x: Bool) -> x in
+                let double = fun f x -> f (f x) in
+                double id_int 0"),
+            "Int"
         );
     }
 }

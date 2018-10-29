@@ -2,7 +2,7 @@ use assoclist::AssocList;
 use std::fmt;
 use syntax::{ArithOp, BoolOp, Kind, Type};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum EvalError {
     NameError(String),
     KeyError(String),
@@ -21,7 +21,7 @@ impl fmt::Display for EvalError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TypeError {
     NegateNonBool,
     NameError(String),
@@ -128,7 +128,7 @@ impl fmt::Display for TypeError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum KindError {
     NameError(String),
     ArgMismatch(Kind, Kind),
