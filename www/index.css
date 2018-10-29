@@ -82,6 +82,14 @@ body, html {
     background-color: #272822;
 }
 
+.sidebar {
+    padding-right: 15px;
+    max-height: 100%;
+    overflow-y: scroll;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
 /* The inner console element. */
 .jqconsole {
     padding: 10px;

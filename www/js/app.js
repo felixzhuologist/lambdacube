@@ -95,7 +95,7 @@ class App extends React.Component {
                 }}
                 key="nav"/>,
             <div className="row" key="body" style={{ height: 'calc(100% - 124px)' }}>
-                <div className="col-4" style={{ paddingLeft: '3%' }}>
+                <div className="col-4" style={{ paddingLeft: '3%', paddingRight: 0 }}>
                     <Sidebar evalLine={(code) => this.evalLine(code)} />
                 </div>
                 <div className="col-4">
