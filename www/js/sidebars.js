@@ -1,26 +1,44 @@
 import React from 'react';
 
-const Simple = () => (
-    <div className="sidebar">
-        <h6>Typed Lambda Calculus</h6>
+class CodeBlock extends React.Component {
+    constructor(props) {
+        super(props);
+    }
 
-        There are two primitive types, {' '}<code>Int</code> and
-        {' '} <code>Bool</code>:
+    runSnippet() {
+        this.props.evalLine(this.refs.code.innerText);
+    }
 
-        <div className="codeblock">
-        <pre>
-            <code className="language-typezoo" id="int1">
-{`1 + 1
-true and false
-as
-let x = true in (if x then 0 else 1)
-fun (x: Int) -> x + 1`}
-            </code>
-        </pre>
-        <a className="run-snippet">Run</a>
+    render() {
+        return (
+            <div className="codeblock">
+                <pre>
+                    <code ref="code" className="language-typezoo">
+                        {`${this.props.code}`}
+                    </code>
+                </pre>
+                <a className="run-snippet" onClick={() => this.runSnippet()}>
+                    Run
+                </a>
+            </div>
+        )
+    }
+}
+
+const Simple = (props) => {
+    const intExample = `1 + 1`;
+
+    return (
+        <div className="sidebar">
+            <h6>Typed Lambda Calculus</h6>
+
+            There are two primitive types, {' '}<code>Int</code> and
+            {' '} <code>Bool</code>:
+
+            <CodeBlock evalLine={props.evalLine} code={intExample} />
         </div>
-    </div>
-)
+    )
+}
 
 const Subtyping = () => (
     <div className="sidebar">

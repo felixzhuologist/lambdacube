@@ -72,6 +72,17 @@ class App extends React.Component {
         this.startPrompt();
     }
 
+    evalLine(code) {
+        if (code === '') {
+            return;
+        }
+        let result = this.props.evalLine(code) + '\n';
+        this.jqconsole.SetPromptText(code);
+        this.jqconsole.AbortPrompt();
+        this.jqconsole.Write(result, 'jqconsole-output');
+        this.startPrompt();
+    }
+
     render() {
         let Sidebar = this.props.sidebars[this.state.sidebarId];
         return ([
@@ -85,7 +96,7 @@ class App extends React.Component {
                 key="nav"/>,
             <div className="row" key="body" style={{ height: 'calc(100% - 124px)' }}>
                 <div className="col-4" style={{ paddingLeft: '3%' }}>
-                    <Sidebar />
+                    <Sidebar evalLine={(code) => this.evalLine(code)} />
                 </div>
                 <div className="col-4">
                     <Editor evalProgram={(code) => this.evalProgram(code)} />
