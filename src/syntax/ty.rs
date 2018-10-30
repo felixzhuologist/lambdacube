@@ -14,7 +14,7 @@ pub enum Type {
     BoundedVar(String, Box<Type>),
     All(String, Box<Type>, Box<Type>),
     // We only allow the value component of an existential to be a record
-    Some(String, AssocList<String, Type>),
+    Some(String, Box<Type>, AssocList<String, Type>),
     TyAbs(String, Kind, Box<Type>),
     TyApp(Box<Type>, Box<Type>),
     QBool,
@@ -78,7 +78,10 @@ impl fmt::Display for Type {
                 Type::Top => write!(f, "∀{}. {}", s, ty),
                 _ => write!(f, "∀{} <: {}. {}", s, bound, ty),
             },
-            Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
+            Type::Some(ref s, ref bound, ref sigs) => match **bound {
+                Type::Top => write!(f, "∃{}. {}", s, sigs),
+                _ => write!(f, "∃{} <: {}. {}", s, bound, sigs),
+            },
             Type::TyAbs(_, _, _) => write!(f, "<tyfun>"),
             Type::TyApp(ref func, ref arg) => write!(f, "{} {}", func, arg),
         }
@@ -119,10 +122,10 @@ impl Substitutable<Type> for Type {
             } else {
                 All(param, Box::new(body), Box::new(bound))
             },
-            Type::Some(param, sigs) => if param != varname {
-                Type::Some(param, sigs.applysubst(varname, var))
+            Type::Some(param, bound, sigs) => if param != varname {
+                Type::Some(param, bound, sigs.applysubst(varname, var))
             } else {
-                Type::Some(param, sigs)
+                Type::Some(param, bound, sigs)
             },
             TyAbs(param, kind, box body) => if param != varname {
                 TyAbs(param, kind, Box::new(body))

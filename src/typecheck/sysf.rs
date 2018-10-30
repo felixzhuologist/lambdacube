@@ -91,7 +91,7 @@ pub fn typecheck(
         }
         Term::Proj(box term, key) => match typecheck(term, context)? {
             // TODO: maybe for modules we should have a different err message
-            Type::Some(_, fields) | Type::Record(fields) => fields
+            Type::Some(_, _, fields) | Type::Record(fields) => fields
                 .lookup(&key)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
@@ -100,14 +100,14 @@ pub fn typecheck(
             // expose first since we can't apply substituion or try resolving
             // the type until we know it's a Type::Some
             let ty = ty.expose(context).map_err(|s| TypeError::NameError(s))?;
-            if let Type::Some(name, sigs) = ty {
+            if let Type::Some(name, bound, sigs) = ty {
                 let mut expected =
                     sigs.clone().applysubst(&name, witness).resolve(context)?;
                 let mut actual = impls.map_typecheck(typecheck, context)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {
-                    Ok(Type::Some(name.clone(), sigs))
+                    Ok(Type::Some(name.clone(), bound.clone(), sigs))
                 } else {
                     Err(TypeError::ModuleMismatch(expected, actual))
                 }
@@ -116,7 +116,7 @@ pub fn typecheck(
             }
         }
         Term::Unpack(tyvar, var, box mod_, box term) => {
-            if let Type::Some(_, sigs) = typecheck(mod_, context)? {
+            if let Type::Some(_, _, sigs) = typecheck(mod_, context)? {
                 context.push(tyvar.clone(), Type::Var(tyvar.clone()));
                 context.push(var.clone(), Type::Record(sigs.clone()));
                 let result = typecheck(term, context)?;

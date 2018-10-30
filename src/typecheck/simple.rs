@@ -118,12 +118,12 @@ pub fn has_ty_operators(ty: &Type) -> bool {
         | Type::Var(_)
         | Type::BoundedVar(_, _) => false,
         Type::TyAbs(_, _, _) | Type::TyApp(_, _) => true,
-        Type::Record(fields) | Type::Some(_, fields) | Type::QRec(fields) => {
-            fields
-                .inner
-                .iter()
-                .any(|(_, ref val)| has_ty_operators(val))
-        }
+        Type::Record(fields)
+        | Type::Some(_, _, fields)
+        | Type::QRec(fields) => fields
+            .inner
+            .iter()
+            .any(|(_, ref val)| has_ty_operators(val)),
         Type::All(_, ref l, ref r)
         | Type::Arr(ref l, ref r)
         | Type::QArr(ref l, ref r) => {

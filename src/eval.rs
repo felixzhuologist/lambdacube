@@ -188,9 +188,10 @@ impl Eval<Type, TypeError> for Type {
                 ctx.pop();
                 result
             }
-            Type::Some(s, sigs) => {
+            Type::Some(s, bound, sigs) => {
                 ctx.push(s.clone(), Type::Var(s.clone()));
-                let result = Ok(Type::Some(s.clone(), sigs.eval(ctx)?));
+                let result =
+                    Ok(Type::Some(s.clone(), bound.clone(), sigs.eval(ctx)?));
                 ctx.pop();
                 result
             }

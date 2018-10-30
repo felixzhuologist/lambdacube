@@ -118,7 +118,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         }
         Term::Proj(box term, key) => match typecheck(term, ctx)? {
             // TODO: maybe for modules we should have a different err message
-            Type::Some(_, fields)
+            Type::Some(_, _, fields)
             | Type::Record(fields)
             | Type::BoundedVar(_, box Type::Record(fields)) => fields
                 .lookup(&key)
@@ -127,14 +127,14 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         },
         Term::Pack(witness, impls, ty) => {
             let ty = ty.expose(ctx).map_err(|s| TypeError::NameError(s))?;
-            if let Type::Some(name, sigs) = ty {
+            if let Type::Some(name, bound, sigs) = ty {
                 let mut expected =
                     sigs.clone().applysubst(&name, witness).resolve(ctx)?;
                 let mut actual = impls.map_typecheck(typecheck, ctx)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {
-                    Ok(Type::Some(name.clone(), sigs))
+                    Ok(Type::Some(name.clone(), bound.clone(), sigs))
                 } else {
                     Err(TypeError::ModuleMismatch(expected, actual))
                 }
@@ -143,7 +143,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::Unpack(tyvar, var, box mod_, box term) => {
-            if let Type::Some(_, sigs) = typecheck(mod_, ctx)? {
+            if let Type::Some(_, _, sigs) = typecheck(mod_, ctx)? {
                 ctx.push(tyvar.clone(), Type::Var(tyvar.clone()));
                 ctx.push(var.clone(), Type::Record(sigs.clone()));
                 let result = typecheck(term, ctx)?;
