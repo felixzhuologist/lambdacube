@@ -202,8 +202,8 @@ AType: Box<Type> = {
     "lin Int" => Box::new(Type::QInt),
     "Top" => Box::new(Type::Top),
     <TyIdent> => Box::new(Type::Var(<>)),
-    "module" "sig" "type" <ty:TyIdent> <sigs:("val" <RecordFieldType>)+> "end" =>
-        Box::new(Type::Some(ty, Box::new(Type::Top), AssocList::from_vec(sigs))),
+    "module" "sig" "type" <p:TypeParam> <sigs:("val" <RecordFieldType>)+> "end" =>
+        Box::new(Type::Some(p.0, Box::new(p.1), AssocList::from_vec(sigs))),
 }
 
 RecordFieldType: (String, Type) = {

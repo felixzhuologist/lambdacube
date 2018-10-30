@@ -1,7 +1,5 @@
 //! Universal Types
 // TODO: bounded existentials
-// TODO: make bound Top by default or mention in sidebar that bounds must always
-// be specified explicitly
 
 use assoclist::TypeContext as Context;
 use errors::TypeError;
@@ -76,6 +74,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         Term::Arith(box left, op, box right) => {
             let l = typecheck(left, ctx)?;
             let r = typecheck(right, ctx)?;
+            println!("l: {:?}, r: {:?}", l, r);
             if is_subtype(&l, &Type::Int, ctx)
                 && is_subtype(&r, &Type::Int, ctx)
             {
@@ -127,14 +126,20 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         },
         Term::Pack(witness, impls, ty) => {
             let ty = ty.expose(ctx).map_err(|s| TypeError::NameError(s))?;
-            if let Type::Some(name, bound, sigs) = ty {
+            if let Type::Some(name, box bound, sigs) = ty {
+                if !is_subtype(witness, &bound, ctx) {
+                    return Err(TypeError::BoundArgMismatch(
+                        bound.clone(),
+                        witness.clone(),
+                    ));
+                }
                 let mut expected =
                     sigs.clone().applysubst(&name, witness).resolve(ctx)?;
                 let mut actual = impls.map_typecheck(typecheck, ctx)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {
-                    Ok(Type::Some(name.clone(), bound.clone(), sigs))
+                    Ok(Type::Some(name.clone(), Box::new(bound.clone()), sigs))
                 } else {
                     Err(TypeError::ModuleMismatch(expected, actual))
                 }
@@ -143,8 +148,8 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::Unpack(tyvar, var, box mod_, box term) => {
-            if let Type::Some(_, _, sigs) = typecheck(mod_, ctx)? {
-                ctx.push(tyvar.clone(), Type::Var(tyvar.clone()));
+            if let Type::Some(_, bound, sigs) = typecheck(mod_, ctx)? {
+                ctx.push(tyvar.clone(), Type::BoundedVar(tyvar.clone(), bound.clone()));
                 ctx.push(var.clone(), Type::Record(sigs.clone()));
                 let result = typecheck(term, ctx)?;
                 ctx.pop();
@@ -237,5 +242,33 @@ mod tests {
             ),
             "{a: Int, b: {a: Int, b: Bool}}"
         );
+    }
+
+    #[test]
+    fn e2e_bound_exis() {
+        assert_eq!(
+            typecheck_code(
+                "module ops
+                    type Bool
+                    val toint = fun (x: Bool) -> 0
+                end as
+                (module sig
+                    type X <: Int
+                    val toint : X -> Int
+                end)"),
+            "Expected subtype of Int but got Bool");
+        assert_eq!(
+            typecheck_code(
+                "let mod = module ops
+                        type Int
+                        val get = 0
+                    end as
+                    (module sig
+                        type X <: Int
+                        val get : X
+                    end) in
+                open mod as c: X in
+                c.get + 1"),
+            "Int");
     }
 }
