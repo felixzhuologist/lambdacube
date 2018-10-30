@@ -52,6 +52,7 @@ pub enum TypeError {
     // Tried to use a value that has a non proper type
     NonProper(String, Kind),
     AbsContainment,
+    RecContainment,
     Linear(String),
 }
 
@@ -123,6 +124,7 @@ impl fmt::Display for TypeError {
                 write!(f, "Term {} must have kind * but has kind {}", v, k)
             }
             TypeError::AbsContainment => write!(f, "Unrestricted functions cannot have linear variables in scope"),
+            TypeError::RecContainment => write!(f, "Unrestricted records cannot have fields with linear values"),
             TypeError::Linear(ref s) => write!(f, "Linear variable {} must be used exactly once", s),
         }
     }

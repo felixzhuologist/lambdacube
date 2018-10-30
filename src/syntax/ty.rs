@@ -74,7 +74,7 @@ impl fmt::Display for Type {
                 write!(f, "lin ({} -> {})", from, to)
             }
             Type::Record(ref rec) => write!(f, "{{{}}}", rec),
-            Type::QRec(ref rec) => write!(f, "{{{}}}", rec),
+            Type::QRec(ref rec) => write!(f, "lin {{{}}}", rec),
             Type::BoundedVar(ref s, _) | Type::Var(ref s) => write!(f, "{}", s),
             Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
             Type::BoundedAll(ref s, ref ty, ref bound) => {

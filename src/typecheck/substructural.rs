@@ -91,7 +91,14 @@ pub fn typecheck(
             typecheck_scope(context, varname, &val_type, term)
         }
         Term::Record(fields) => {
-            Ok(Type::Record(fields.map_typecheck(typecheck, context)?))
+            let new_fields = fields.map_typecheck(typecheck, context)?;
+            if new_fields.inner.iter().any(|(_, ty)| ty.is_qualified()) {
+                return Err(TypeError::RecContainment);
+            }
+            Ok(Type::Record(new_fields))
+        }
+        Term::QRec(fields) => {
+            Ok(Type::QRec(fields.map_typecheck(typecheck, context)?))
         }
         Term::Proj(box term, key) => match typecheck(term, context)? {
             Type::Record(fields) => fields
@@ -105,8 +112,7 @@ pub fn typecheck(
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
         | Term::KindedTyAbs(_, _, _)
-        | Term::BoundedTyAbs(_, _, _)
-        | Term::QRec(_) => Err(TypeError::Unsupported),
+        | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -201,5 +207,11 @@ pub mod tests {
             ),
             "lin Int"
         );
+        assert_eq!(
+            typecheck_code("lin {a=1, b=lin 2}"),
+            "lin {a: Int, b: lin Int}");
+        assert_eq!(
+            typecheck_code("{a=1, b=lin 2}"),
+            "Unrestricted records cannot have fields with linear values");
     }
 }
