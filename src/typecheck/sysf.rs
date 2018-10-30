@@ -116,9 +116,15 @@ pub fn typecheck(
             }
         }
         Term::Unpack(tyvar, var, box mod_, box term) => {
-            if let Type::Some(_, _, sigs) = typecheck(mod_, context)? {
+            if let Type::Some(hidden, _, sigs) = typecheck(mod_, context)? {
                 context.push(tyvar.clone(), Type::Var(tyvar.clone()));
-                context.push(var.clone(), Type::Record(sigs.clone()));
+                context.push(
+                    var.clone(),
+                    Type::Record(
+                        sigs.clone()
+                            .applysubst(&hidden, &Type::Var(tyvar.clone())),
+                    ),
+                );
                 let result = typecheck(term, context)?;
                 context.pop();
                 context.pop();
@@ -239,6 +245,22 @@ mod tests {
             pack
         );
         assert_eq!(typecheck_code(&open_use_ty), "(Counter -> Int)");
+
+        // check that assigning a different name to the hidden type works
+        let open_use_ty_alias = format!(
+            "open {} as counter: C in fun (c: C) -> counter.get c",
+            pack
+        );
+        assert_eq!(typecheck_code(&open_use_ty_alias), "(C -> Int)");
+
+        // check that we can't use the hidden type concretely
+        let use_ty_concrete = format!(
+            "open {} as counter: C in counter.new + 1",
+            pack
+        );
+        assert_eq!(
+            typecheck_code(&use_ty_concrete),
+            "Cannot apply + to C and Int");
 
         let modty = grammar::TypeParser::new().parse(module).unwrap();
         let mut ctx = Context::empty();

@@ -74,7 +74,6 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
         Term::Arith(box left, op, box right) => {
             let l = typecheck(left, ctx)?;
             let r = typecheck(right, ctx)?;
-            println!("l: {:?}, r: {:?}", l, r);
             if is_subtype(&l, &Type::Int, ctx)
                 && is_subtype(&r, &Type::Int, ctx)
             {
@@ -148,9 +147,15 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::Unpack(tyvar, var, box mod_, box term) => {
-            if let Type::Some(_, bound, sigs) = typecheck(mod_, ctx)? {
-                ctx.push(tyvar.clone(), Type::BoundedVar(tyvar.clone(), bound.clone()));
-                ctx.push(var.clone(), Type::Record(sigs.clone()));
+            if let Type::Some(hidden, bound, sigs) = typecheck(mod_, ctx)? {
+                ctx.push(tyvar.clone(), Type::BoundedVar(tyvar.clone(), bound));
+                ctx.push(
+                    var.clone(),
+                    Type::Record(
+                        sigs.clone()
+                            .applysubst(&hidden, &Type::Var(tyvar.clone())),
+                    ),
+                );
                 let result = typecheck(term, ctx)?;
                 ctx.pop();
                 ctx.pop();
@@ -255,8 +260,10 @@ mod tests {
                 (module sig
                     type X <: Int
                     val toint : X -> Int
-                end)"),
-            "Expected subtype of Int but got Bool");
+                end)"
+            ),
+            "Expected subtype of Int but got Bool"
+        );
         assert_eq!(
             typecheck_code(
                 "let mod = module ops
@@ -267,8 +274,10 @@ mod tests {
                         type X <: Int
                         val get : X
                     end) in
-                open mod as c: X in
-                c.get + 1"),
-            "Int");
+                open mod as c: Inner in
+                c.get + 1"
+            ),
+            "Int"
+        );
     }
 }
