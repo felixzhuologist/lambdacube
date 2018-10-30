@@ -4,6 +4,8 @@ use eval;
 use std::marker;
 use syntax::{Kind, Term, Type};
 
+// TODO: make star kind by default, or mention in docs that kinds must be provided
+// explicitly
 pub fn typecheck(
     term: &Term,
     type_ctx: &mut TypeContext,

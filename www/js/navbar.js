@@ -5,7 +5,7 @@ const Navbar = (props) => (
     <nav className="navbar navbar-expand-lg justify-content-between">
       <div className="navbrand">
         <span className="navbar-brand mb-0 h1" style={{ fontSize: '1.5em' }}>
-            Type Zoo
+            Type Zoo<sup>beta</sup>
         </span>
       </div>
       <div className="navactions">

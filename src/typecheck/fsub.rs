@@ -1,5 +1,7 @@
 //! Universal Types
 // TODO: bounded existentials
+// TODO: make bound Top by default or mention in sidebar that bounds must always
+// be specified explicitly
 
 use assoclist::TypeContext as Context;
 use errors::TypeError;

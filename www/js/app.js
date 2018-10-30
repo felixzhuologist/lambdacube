@@ -11,8 +11,9 @@ class App extends React.Component {
                 { id: 1, value: 'hm', isDisabled: false, label: 'Hindley-Milner' },
                 { id: 2, value: 'sysf', isDisabled: false, label: 'System F' },
                 { id: 3, value: 'higher', isDisabled: false, label: 'Higher order types' },
-                { id: 4, value: 'dependent', isDisabled: true, label: 'Dependent types' },
-                { id: 5, value: 'linear', isDisabled: false, label: 'Linear types' }
+                { id: 4, value: 'dependent', isDisabled: true, label: 'Dependent types (coming soon)' },
+                { id: 5, value: 'linear', isDisabled: false, label: 'Linear types' },
+                { id: 6, value: 'effect', isDisabled: true, label: 'Effect types (coming soon)' }
             ],
             sidebarId: 'simple',
         };
