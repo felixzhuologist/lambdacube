@@ -114,7 +114,7 @@ pub fn typecheck(
         )),
         Term::Proj(box term, key) => match typecheck(term, type_ctx, kind_ctx)?
         {
-            Type::Record(fields) => fields
+            Type::Record(fields) | Type::Some(_, _, fields) => fields
                 .lookup(&key)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
@@ -157,6 +157,7 @@ pub fn typecheck(
                 typecheck(mod_, type_ctx, kind_ctx)?
             {
                 type_ctx.push(tyvar.clone(), Type::Var(tyvar.clone()));
+                kind_ctx.push(tyvar.clone(), Kind::Star);
                 type_ctx.push(
                     var.clone(),
                     Type::Record(
@@ -164,9 +165,12 @@ pub fn typecheck(
                             .applysubst(&hidden, &Type::Var(tyvar.clone())),
                     ),
                 );
+                kind_ctx.push(var.clone(), Kind::Star);
                 let result = typecheck(term, type_ctx, kind_ctx)?;
                 type_ctx.pop();
                 type_ctx.pop();
+                kind_ctx.pop();
+                kind_ctx.pop();
                 Ok(result)
             } else {
                 Err(TypeError::ExpectedSome)

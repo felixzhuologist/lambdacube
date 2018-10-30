@@ -4,8 +4,9 @@ use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
 use eval::Eval;
 use kindcheck::kindcheck;
-use syntax::{Substitutable, Term, Type};
+use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::omega::Simplify;
+use typecheck::simple::Resolve;
 use typecheck::sub::is_subtype;
 
 pub fn typecheck(
@@ -54,9 +55,11 @@ pub fn typecheck(
         Term::App(box func, box val) => {
             match typecheck(func, type_ctx, kind_ctx)? {
                 Type::Arr(box in_type, box out_type) => {
-                    match typecheck(val, type_ctx, kind_ctx)? {
-                        ref t if *t == in_type => Ok(out_type.clone()),
-                        t => Err(TypeError::ArgMismatch(in_type, t)),
+                    let t = typecheck(val, type_ctx, kind_ctx)?;
+                    if is_subtype(&t, &in_type, type_ctx) {
+                        Ok(out_type.clone())
+                    } else {
+                        Err(TypeError::ArgMismatch(in_type, t))
                     }
                 }
                 _ => Err(TypeError::FuncApp),
@@ -84,24 +87,36 @@ pub fn typecheck(
                 _ => Err(TypeError::TyFuncApp),
             }
         }
-        Term::Arith(box left, op, box right) => match (
-            typecheck(left, type_ctx, kind_ctx)?,
-            typecheck(right, type_ctx, kind_ctx)?,
-        ) {
-            (Type::Int, Type::Int) => Ok(op.return_type()),
-            (l, r) => Err(TypeError::Arith(*op, l, r)),
-        },
-        Term::Logic(box left, op, box right) => match (
-            typecheck(left, type_ctx, kind_ctx)?,
-            typecheck(right, type_ctx, kind_ctx)?,
-        ) {
-            (Type::Bool, Type::Bool) => Ok(Type::Bool),
-            (l, r) => Err(TypeError::Logic(*op, l, r)),
-        },
+        Term::Arith(box left, op, box right) => {
+            let l = typecheck(left, type_ctx, kind_ctx)?;
+            let r = typecheck(right, type_ctx, kind_ctx)?;
+            if is_subtype(&l, &Type::Int, type_ctx)
+                && is_subtype(&r, &Type::Int, type_ctx)
+            {
+                Ok(op.return_type())
+            } else {
+                Err(TypeError::Arith(*op, l, r))
+            }
+        }
+        Term::Logic(box left, op, box right) => {
+            let l = typecheck(left, type_ctx, kind_ctx)?;
+            let r = typecheck(right, type_ctx, kind_ctx)?;
+            if is_subtype(&l, &Type::Bool, type_ctx)
+                && is_subtype(&r, &Type::Bool, type_ctx)
+            {
+                Ok(Type::Bool)
+            } else {
+                Err(TypeError::Logic(*op, l, r))
+            }
+        }
         Term::If(box cond, box if_, box else_) => {
             let left = typecheck(if_, type_ctx, kind_ctx)?;
             let right = typecheck(else_, type_ctx, kind_ctx)?;
-            if typecheck(cond, type_ctx, kind_ctx)? != Type::Bool {
+            if !is_subtype(
+                &typecheck(cond, type_ctx, kind_ctx)?,
+                &Type::Bool,
+                type_ctx,
+            ) {
                 Err(TypeError::IfElseCond)
             } else if left != right {
                 Err(TypeError::IfElseArms(left, right))
@@ -121,14 +136,71 @@ pub fn typecheck(
         )),
         Term::Proj(box term, key) => match typecheck(term, type_ctx, kind_ctx)?
         {
-            Type::Record(fields) => fields
+            Type::Some(_, _, fields)
+            | Type::Record(fields)
+            | Type::BoundedVar(_, box Type::Record(fields))
+            | Type::BoundedVar(_, box Type::Some(_, _, fields)) => fields
                 .lookup(&key)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
+        Term::Pack(witness, impls, ty) => {
+            let ty =
+                ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))?;
+            if let Type::Some(name, box bound, sigs) = ty {
+                if !is_subtype(witness, &bound, type_ctx) {
+                    return Err(TypeError::BoundArgMismatch(
+                        bound.clone(),
+                        witness.clone(),
+                    ));
+                }
+
+                let mut expected = sigs
+                    .clone()
+                    .applysubst(&name, witness)
+                    .resolve(type_ctx)?;
+                let mut actual = impls
+                    .map_typecheck_kind(typecheck, type_ctx, kind_ctx)?
+                    .resolve(type_ctx)?;
+                expected.inner.sort_by_key(|(s, _)| s.clone());
+                actual.inner.sort_by_key(|(s, _)| s.clone());
+                if actual == expected {
+                    Ok(Type::Some(name.clone(), Box::new(bound.clone()), sigs))
+                } else {
+                    Err(TypeError::ModuleMismatch(expected, actual))
+                }
+            } else {
+                Err(TypeError::ExpectedSome)
+            }
+        }
+        Term::Unpack(tyvar, var, box mod_, box term) => {
+            if let Type::Some(hidden, bound, sigs) =
+                typecheck(mod_, type_ctx, kind_ctx)?
+            {
+                type_ctx.push(
+                    tyvar.clone(),
+                    Type::BoundedVar(tyvar.clone(), bound),
+                );
+                kind_ctx.push(tyvar.clone(), Kind::Star);
+                type_ctx.push(
+                    var.clone(),
+                    Type::Record(
+                        sigs.clone()
+                            .applysubst(&hidden, &Type::Var(tyvar.clone())),
+                    ),
+                );
+                kind_ctx.push(var.clone(), Kind::Star);
+                let result = typecheck(term, type_ctx, kind_ctx)?;
+                type_ctx.pop();
+                type_ctx.pop();
+                kind_ctx.pop();
+                kind_ctx.pop();
+                Ok(result)
+            } else {
+                Err(TypeError::ExpectedSome)
+            }
+        }
         Term::InfAbs(_, _)
-        | Term::Pack(_, _, _)
-        | Term::Unpack(_, _, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)
@@ -139,7 +211,7 @@ pub fn typecheck(
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use assoclist::TypeContext;
+    use assoclist::{KindContext, TypeContext};
     use grammar;
 
     pub fn typecheck_code(code: &str) -> String {
@@ -181,5 +253,55 @@ pub mod tests {
             typecheck_code("(fun[X <: (Top -> Top)] (x: X) -> x)[Int]"),
             "Expected subtype of (Top -> Top) but got Int"
         );
+
+        assert_eq!(
+            typecheck_code(
+                "module ops
+                    type Bool
+                    val toint = fun (x: Bool) -> 0
+                end as
+                (module sig
+                    type X <: Int
+                    val toint : X -> Int
+                end)"
+            ),
+            "Expected subtype of Int but got Bool"
+        );
+        assert_eq!(
+            typecheck_code(
+                "let mod = module ops
+                        type Int
+                        val get = 0
+                    end as
+                    (module sig
+                        type X <: Int
+                        val get : X
+                    end) in
+                open mod as c: Inner in
+                c.get + 1"
+            ),
+            "Int"
+        );
+    }
+
+    #[test]
+    fn exis_ret() {
+        let module = "module sig type T val inc: T -> T end";
+        let func = "fun (c: Counter) -> open c as body: X in
+            module ops
+                type X
+                val inc = body.inc
+            end as (Counter)";
+
+        let modty = grammar::TypeParser::new().parse(module).unwrap();
+        let mut type_ctx = TypeContext::empty();
+        let mut kind_ctx = KindContext::empty();
+        type_ctx.push(String::from("Counter"), *modty);
+        kind_ctx.push(String::from("Counter"), Kind::Star);
+        let ast = grammar::TermParser::new().parse(func).unwrap();
+        let result = typecheck(&ast, &mut type_ctx, &mut kind_ctx)
+            .map(|ty| ty.to_string())
+            .unwrap_or_else(|err| err.to_string());
+        assert_eq!(result, "(∃T. inc: (T -> T) -> ∃T. inc: (T -> T))");
     }
 }

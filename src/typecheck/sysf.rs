@@ -103,7 +103,9 @@ pub fn typecheck(
             if let Type::Some(name, bound, sigs) = ty {
                 let mut expected =
                     sigs.clone().applysubst(&name, witness).resolve(context)?;
-                let mut actual = impls.map_typecheck(typecheck, context)?;
+                let mut actual = impls
+                    .map_typecheck(typecheck, context)?
+                    .resolve(context)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {

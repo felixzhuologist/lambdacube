@@ -118,7 +118,8 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             // TODO: maybe for modules we should have a different err message
             Type::Some(_, _, fields)
             | Type::Record(fields)
-            | Type::BoundedVar(_, box Type::Record(fields)) => fields
+            | Type::BoundedVar(_, box Type::Record(fields))
+            | Type::BoundedVar(_, box Type::Some(_, _, fields)) => fields
                 .lookup(&key)
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
@@ -134,7 +135,8 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
                 }
                 let mut expected =
                     sigs.clone().applysubst(&name, witness).resolve(ctx)?;
-                let mut actual = impls.map_typecheck(typecheck, ctx)?;
+                let mut actual =
+                    impls.map_typecheck(typecheck, ctx)?.resolve(ctx)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {

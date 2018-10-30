@@ -134,6 +134,21 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
             let tyfun2 = ty2.clone().applysubst(s2, bound2);
             is_subtype(&tyfun1, &tyfun2, ctx)
         }
+        (
+            Type::Some(ref s1, box bound1, sig1),
+            Type::Some(ref s2, box bound2, sig2),
+        )
+            if bound1 == bound2 =>
+        {
+            let mut sig1 = sig1.clone().applysubst(s1, bound1);
+            let mut sig2 = sig2.clone().applysubst(s2, bound2);
+            sig1.inner.sort_by_key(|(s, _)| s.clone());
+            sig2.inner.sort_by_key(|(s, _)| s.clone());
+            sig1.inner
+                .iter()
+                .zip(sig2.inner.iter())
+                .all(|((_, ty1), (_, ty2))| is_subtype(ty1, ty2, ctx))
+        }
         (Type::TyAbs(s1, k1, box ty1), Type::TyAbs(s2, k2, box ty2)) => {
             if k1 != k2 {
                 return false;
@@ -180,6 +195,15 @@ mod tests {
     fn subtyping() {
         let mut ctx = TypeContext::empty();
 
+        let small_assoclist = AssocList::from_vec(vec![(
+            "a".to_string(),
+            Type::Int,
+        )]);
+        let big_assoclist = AssocList::from_vec(vec![
+            ("a".to_string(), Type::Int),
+            ("b".to_string(), Type::Bool),
+        ]);
+
         // types are equal
         assert!(is_subtype(&Type::Bool, &Type::Bool, &mut ctx));
         assert!(is_subtype(
@@ -189,14 +213,8 @@ mod tests {
         ));
 
         // width subtyping
-        let small_rec = Type::Record(AssocList::from_vec(vec![(
-            "a".to_string(),
-            Type::Int,
-        )]));
-        let big_rec = Type::Record(AssocList::from_vec(vec![
-            ("a".to_string(), Type::Int),
-            ("b".to_string(), Type::Bool),
-        ]));
+        let small_rec = Type::Record(small_assoclist.clone());
+        let big_rec = Type::Record(big_assoclist.clone());
         assert!(is_subtype(&big_rec, &small_rec, &mut ctx));
 
         // depth subtyping
@@ -227,5 +245,17 @@ mod tests {
             Box::new(Type::Int),
         );
         assert!(is_subtype(&poly1, &poly2, &mut ctx));
+
+        let mod1 = Type::Some(
+            String::from("X"),
+            Box::new(Type::Top),
+            big_assoclist.clone(),
+        );
+        let mod2 = Type::Some(
+            String::from("Y"),
+            Box::new(Type::Top),
+            small_assoclist.clone(),
+        );
+        assert!(is_subtype(&mod1, &mod2, &mut ctx));
     }
 }
