@@ -121,7 +121,7 @@ impl fmt::Display for TypeError {
             }
             TypeError::KindError(ref s) => write!(f, "{}", s),
             TypeError::NonProper(ref v, ref k) => {
-                write!(f, "Term {} must have kind * but has kind {}", v, k)
+                write!(f, "Term {} must have type with kind * but has one with kind {}", v, k)
             }
             TypeError::AbsContainment => write!(f, "Unrestricted functions cannot have linear variables in scope"),
             TypeError::RecContainment => write!(f, "Unrestricted records cannot have fields with linear values"),

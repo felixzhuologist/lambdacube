@@ -2,6 +2,7 @@
 
 use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
+use eval::Eval;
 use kindcheck::kindcheck;
 use syntax::{Substitutable, Term, Type};
 use typecheck::omega::Simplify;
@@ -33,7 +34,7 @@ pub fn typecheck(
             result
         }
         Term::TyAbs(param, box body, bound) => {
-            let bound = bound.simplify(param, type_ctx, kind_ctx)?;
+            let bound = bound.eval(type_ctx)?;
             type_ctx.push(
                 param.clone(),
                 Type::BoundedVar(param.clone(), Box::new(bound.clone())),
@@ -61,20 +62,23 @@ pub fn typecheck(
                 _ => Err(TypeError::FuncApp),
             }
         }
-        Term::TyApp(box func, argty) => {
+        Term::TyApp(box func, ty) => {
+            kindcheck(ty, kind_ctx)
+                .map_err(|e| TypeError::KindError(e.to_string()))?;
+
             let functy =
                 typecheck(func, type_ctx, kind_ctx).and_then(|ty| {
                     ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))
                 })?;
             match functy {
                 Type::All(s, box body, box bound) => {
-                    if !is_subtype(argty, &bound, type_ctx) {
+                    if !is_subtype(ty, &bound, type_ctx) {
                         Err(TypeError::BoundArgMismatch(
                             bound.clone(),
-                            argty.clone(),
+                            ty.clone(),
                         ))
                     } else {
-                        Ok(body.clone().applysubst(&s, argty))
+                        Ok(body.clone().applysubst(&s, ty).eval(type_ctx)?)
                     }
                 }
                 _ => Err(TypeError::TyFuncApp),
@@ -149,6 +153,26 @@ pub mod tests {
 
     #[test]
     fn e2e_type() {
+        assert_eq!(
+            typecheck_code("(fun[X: *] (x: X) -> x)[Int]"),
+            "(Int -> Int)"
+        );
+        assert_eq!(
+            typecheck_code("(fun[X: * -> *] (x: X) -> x)[Int]"),
+            "Term x must have type with kind * but has one with kind (* -> *)"
+        );
+        // TODO: this error message isn't great...
+        assert_eq!(
+            typecheck_code("(fun[X: * -> *] (x: X Int) -> x)[Int]"),
+            "Expected subtype of <tyfun> but got Int"
+        );
+        assert_eq!(
+            typecheck_code(
+                "(fun[X: * -> *] (x: X Int) -> x)[tyfun (X: *) => {x: X}]"
+            ),
+            "({x: Int} -> {x: Int})"
+        );
+
         assert_eq!(
             typecheck_code("(fun[X <: Top] (x: X) -> x)[Int]"),
             "(Int -> Int)"

@@ -143,7 +143,7 @@ pub mod tests {
         let tyfun = "tyfun (X: *) => X -> X";
         assert_eq!(
             typecheck_code(&format!("fun (x: {}) -> x", tyfun)),
-            "Term x must have kind * but has kind (* -> *)"
+            "Term x must have type with kind * but has one with kind (* -> *)"
         );
         assert_eq!(
             typecheck_code(&format!("fun (x: ({}) Int) -> x", tyfun)),

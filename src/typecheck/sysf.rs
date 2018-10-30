@@ -254,13 +254,12 @@ mod tests {
         assert_eq!(typecheck_code(&open_use_ty_alias), "(C -> Int)");
 
         // check that we can't use the hidden type concretely
-        let use_ty_concrete = format!(
-            "open {} as counter: C in counter.new + 1",
-            pack
-        );
+        let use_ty_concrete =
+            format!("open {} as counter: C in counter.new + 1", pack);
         assert_eq!(
             typecheck_code(&use_ty_concrete),
-            "Cannot apply + to C and Int");
+            "Cannot apply + to C and Int"
+        );
 
         let modty = grammar::TypeParser::new().parse(module).unwrap();
         let mut ctx = Context::empty();

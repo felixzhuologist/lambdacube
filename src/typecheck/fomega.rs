@@ -6,6 +6,7 @@
 
 use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
+use eval::Eval;
 use kindcheck::kindcheck;
 use syntax::{Substitutable, Term, Type};
 use typecheck::omega::Simplify;
@@ -60,15 +61,15 @@ pub fn typecheck(
             }
         }
         Term::TyApp(box func, ty) => {
-            let expected = kindcheck(ty, kind_ctx)
+            let actual = kindcheck(ty, kind_ctx)
                 .map_err(|e| TypeError::KindError(e.to_string()))?;
             match typecheck(func, type_ctx, kind_ctx)? {
                 Type::All(s, box body, box bound) => {
-                    let actual = get_kind(&bound);
-                    if actual != expected {
+                    let expected = get_kind(&bound);
+                    if expected != actual {
                         Err(TypeError::KindMismatch(expected, actual))
                     } else {
-                        Ok(body.clone().applysubst(&s, ty))
+                        Ok(body.clone().applysubst(&s, ty).eval(type_ctx)?)
                     }
                 }
                 _ => Err(TypeError::TyFuncApp),
@@ -149,7 +150,17 @@ pub mod tests {
         );
         assert_eq!(
             typecheck_code("(fun[X: * -> *] (x: X) -> x)[Int]"),
-            "Term x must have kind * but has kind (* -> *)"
+            "Term x must have type with kind * but has one with kind (* -> *)"
+        );
+        assert_eq!(
+            typecheck_code("(fun[X: * -> *] (x: X Int) -> x)[Int]"),
+            "Expected kind of (* -> *) but got *"
+        );
+        assert_eq!(
+            typecheck_code(
+                "(fun[X: * -> *] (x: X Int) -> x)[tyfun (X: *) => {x: X}]"
+            ),
+            "({x: Int} -> {x: Int})"
         );
 
         let pairtype =

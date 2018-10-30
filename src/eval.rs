@@ -199,7 +199,12 @@ impl Eval<Type, TypeError> for Type {
                 Type::TyAbs(argname, _, box body) => {
                     Ok(body.applysubst(&argname, &arg.eval(ctx)?))
                 }
-                _ => panic!("kindchecking should catch this"),
+                // if this didn't fail kindchecking, then func must be a variable
+                // that has a valid kind but is not known yet, so this is as
+                // far as we can evaluate
+                // e.g. in fun[X: * -> *] (x: X Int) ..., we don't know what X
+                // actually is during typechecking, but we know that X Int is valid
+                _ => Ok(Type::TyApp(func.clone(), arg.clone())),
             },
         }
     }
