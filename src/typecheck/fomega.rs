@@ -6,10 +6,12 @@
 
 use assoclist::{KindContext, TypeContext};
 use errors::TypeError;
+use eval;
 use eval::Eval;
 use kindcheck::kindcheck;
-use syntax::{Substitutable, Term, Type};
+use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::omega::Simplify;
+use typecheck::simple::Resolve;
 use typecheck::sub::get_kind;
 
 pub fn typecheck(
@@ -107,9 +109,9 @@ pub fn typecheck(
             type_ctx.pop();
             result
         }
-        Term::Record(fields) => {
-            Ok(Type::Record(fields.blabla(typecheck, type_ctx, kind_ctx)?))
-        }
+        Term::Record(fields) => Ok(Type::Record(
+            fields.map_typecheck_kind(typecheck, type_ctx, kind_ctx)?,
+        )),
         Term::Proj(box term, key) => match typecheck(term, type_ctx, kind_ctx)?
         {
             Type::Record(fields) => fields
@@ -117,9 +119,60 @@ pub fn typecheck(
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
+        Term::Pack(witness, impls, ty) => {
+            let ty =
+                ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))?;
+            if let Type::Some(name, bound, sigs) = ty {
+                let bound_kind = get_kind(&bound);
+                let (witness, witness_kind) =
+                    eval::eval_type(witness, type_ctx, kind_ctx)?;
+                if let Kind::Arr(_, _) = bound_kind {
+                    return Err(TypeError::ModuleKind);
+                } else if witness_kind != bound_kind {
+                    return Err(TypeError::KindMismatch(
+                        bound_kind,
+                        witness_kind,
+                    ));
+                }
+
+                let mut expected = sigs
+                    .clone()
+                    .applysubst(&name, &witness)
+                    .resolve(type_ctx)?;
+                let mut actual =
+                    impls.map_typecheck_kind(typecheck, type_ctx, kind_ctx)?;
+                expected.inner.sort_by_key(|(s, _)| s.clone());
+                actual.inner.sort_by_key(|(s, _)| s.clone());
+                if actual == expected {
+                    Ok(Type::Some(name.clone(), bound.clone(), sigs))
+                } else {
+                    Err(TypeError::ModuleMismatch(expected, actual))
+                }
+            } else {
+                Err(TypeError::ExpectedSome)
+            }
+        }
+        Term::Unpack(tyvar, var, box mod_, box term) => {
+            if let Type::Some(hidden, _, sigs) =
+                typecheck(mod_, type_ctx, kind_ctx)?
+            {
+                type_ctx.push(tyvar.clone(), Type::Var(tyvar.clone()));
+                type_ctx.push(
+                    var.clone(),
+                    Type::Record(
+                        sigs.clone()
+                            .applysubst(&hidden, &Type::Var(tyvar.clone())),
+                    ),
+                );
+                let result = typecheck(term, type_ctx, kind_ctx)?;
+                type_ctx.pop();
+                type_ctx.pop();
+                Ok(result)
+            } else {
+                Err(TypeError::ExpectedSome)
+            }
+        }
         Term::InfAbs(_, _)
-        | Term::Pack(_, _, _)
-        | Term::Unpack(_, _, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)
@@ -161,6 +214,34 @@ pub mod tests {
                 "(fun[X: * -> *] (x: X Int) -> x)[tyfun (X: *) => {x: X}]"
             ),
             "({x: Int} -> {x: Int})"
+        );
+
+        assert_eq!(
+            typecheck_code(
+                "module ops
+                    type Int
+                    val toint = fun (x: Int) -> x
+                end as
+                (module sig
+                    type X: *
+                    val toint : X -> Int
+                end)"
+            ),
+            "∃X. toint: (X -> Int)"
+        );
+
+        assert_eq!(
+            typecheck_code(
+                "module ops
+                    type (tyfun (X: *) => {x: X})
+                    val toint = fun (rec: {x: X}) -> rec.x
+                end as
+                (module sig
+                    type X: * -> *
+                    val toint : X Int -> Int
+                end)"
+            ),
+            "Module hidden type must have kind *"
         );
 
         let pairtype =

@@ -46,6 +46,7 @@ pub enum TypeError {
     Unsupported,
     ExpectedSome,
     ModuleMismatch(AssocList<String, Type>, AssocList<String, Type>),
+    ModuleKind,
     /// Pass off a KindError err message as a TypeError
     // TODO: is there a better way to do this?
     KindError(String),
@@ -118,6 +119,9 @@ impl fmt::Display for TypeError {
                     the declared interface is of type:\n{}",
                     actual,
                     expected)
+            }
+            TypeError::ModuleKind => {
+                write!(f, "Module hidden type must have kind *")
             }
             TypeError::KindError(ref s) => write!(f, "{}", s),
             TypeError::NonProper(ref v, ref k) => {

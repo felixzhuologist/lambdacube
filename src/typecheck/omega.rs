@@ -74,9 +74,9 @@ pub fn typecheck(
             type_ctx.pop();
             result
         }
-        Term::Record(fields) => {
-            Ok(Type::Record(fields.blabla(typecheck, type_ctx, kind_ctx)?))
-        }
+        Term::Record(fields) => Ok(Type::Record(
+            fields.map_typecheck_kind(typecheck, type_ctx, kind_ctx)?,
+        )),
         Term::Proj(box term, key) => match typecheck(term, type_ctx, kind_ctx)?
         {
             Type::Record(fields) => fields

@@ -84,7 +84,7 @@ impl AssocList<String, Term> {
 }
 
 impl AssocList<String, Term> {
-    pub fn blabla(
+    pub fn map_typecheck_kind(
         &self,
         tc: fn(&Term, &mut TypeContext, &mut KindContext)
             -> Result<Type, TypeError>,
