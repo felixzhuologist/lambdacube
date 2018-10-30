@@ -42,8 +42,7 @@ pub fn get_constraints(
 
             context.push(param.clone(), intype.clone());
             let outtype = get_constraints(body, context, constraints)?;
-            let result =
-                Ok(Type::Arr(Box::new(intype), Box::new(outtype)));
+            let result = Ok(Type::Arr(Box::new(intype), Box::new(outtype)));
             context.pop();
             result
         }
@@ -51,8 +50,7 @@ pub fn get_constraints(
             let intype = Type::Var(pick_fresh_intype(&context));
             context.push(param.clone(), intype.clone());
             let outtype = get_constraints(body, context, constraints)?;
-            let result =
-                Ok(Type::Arr(Box::new(intype), Box::new(outtype)));
+            let result = Ok(Type::Arr(Box::new(intype), Box::new(outtype)));
             context.pop();
             result
         }
@@ -96,12 +94,10 @@ pub fn get_constraints(
             Ok(tyres)
         }
         Term::Record(_) | Term::Proj(_, _) => unimplemented!(),
-        Term::TyAbs(_, _)
+        Term::TyAbs(_, _, _)
         | Term::TyApp(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::KindedTyAbs(_, _, _)
-        | Term::BoundedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)
@@ -246,13 +242,16 @@ mod tests {
             "((X?0 -> X?1) -> ((Bool -> X?0) -> X?1))"
         );
         assert_eq!(
-            typecheck_code("fun f x -> f (f x)"), "((X' -> X') -> (X' -> X'))");
+            typecheck_code("fun f x -> f (f x)"),
+            "((X' -> X') -> (X' -> X'))"
+        );
         assert_eq!(
             typecheck_code(
                 "let id_int = fun (x: Int) -> x in
                 let id_bool = fun(x: Bool) -> x in
                 let double = fun f x -> f (f x) in
-                double id_int 0"),
+                double id_int 0"
+            ),
             "Int"
         );
     }

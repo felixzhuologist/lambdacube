@@ -1,6 +1,6 @@
 use assoclist::{AssocList};
 use syntax::{ArithOp, BoolOp, Term, Type, Kind, Command, Binder};
-use syntax::term::TypeParam;
+use typecheck::sub::get_top;
 
 use std::str::FromStr;
 
@@ -56,22 +56,17 @@ pub Term: Box<Term> = {
         Box::new(univ
             .into_iter()
             .rev()
-            .fold(func, |func, next_| match next_ {
-                (var, TypeParam::Regular) => Term::TyAbs(var, Box::new(func)),
-                (var, TypeParam::Bounded(bound)) =>
-                    Term::BoundedTyAbs(var, Box::new(func), bound),
-                (var, TypeParam::Kinded(kind)) =>
-                    Term::KindedTyAbs(var, Box::new(func), kind),
-            }))
+            .fold(func, |func, (var, bound)| Term::TyAbs(var, Box::new(func), bound))
+        )
     },
     AppTerm ArithOp Term => Box::new(Term::Arith(<>)),
     AppTerm BoolOp Term => Box::new(Term::Logic(<>)),
 }
 
-TypeParam: (String, TypeParam) = {
-    <s:TyIdent> => (s, TypeParam::Regular),
-    <s:TyIdent> "<:" <bound:Type> => (s, TypeParam::Bounded(*bound)),
-    <s:TyIdent> ":" <k:Kind> => (s, TypeParam::Kinded(*k)),
+TypeParam: (String, Type) = {
+    <s:TyIdent> => (s, Type::Top),
+    <s:TyIdent> "<:" <bound:Type> => (s, *bound),
+    <s:TyIdent> ":" <k:Kind> => (s, get_top(&k)),
 }
 
 TypedParams: Vec<(String, Box<Type>)> = {
@@ -174,13 +169,7 @@ pub Type: Box<Type> = {
         Box::new(p
             .into_iter()
             .rev()
-            .fold(*ty, |func, arg| match arg {
-                (var, TypeParam::Regular) => Type::All(var, Box::new(func)),
-                (var, TypeParam::Bounded(bound)) =>
-                    Type::BoundedAll(var, Box::new(func), Box::new(bound)),
-                (var, TypeParam::Kinded(kind)) =>
-                    Type::KindedAll(var, Box::new(func), kind),
-            })
+            .fold(*ty, |func, (var, bound)| Type::All(var, Box::new(func), Box::new(bound)))
         ),
     "tyfun" <p:KindParams> "=>" <ty:Type> =>
         Box::new(p

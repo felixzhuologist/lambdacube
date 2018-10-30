@@ -2,6 +2,8 @@ import React from 'react';
 import Editor from './editor';
 import Navbar from './navbar';
 
+// TODO: friendlier error messages when trying to evaluate a type, or add
+// something like haskell's :t and :k
 class App extends React.Component {
     constructor(props) {
         super(props);

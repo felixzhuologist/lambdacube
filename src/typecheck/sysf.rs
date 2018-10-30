@@ -33,11 +33,12 @@ pub fn typecheck(
             context.pop();
             result
         }
-        Term::TyAbs(param, box body) => {
+        Term::TyAbs(param, box body, bound) => {
             context.push(param.clone(), Type::Var(param.clone()));
             let result = Ok(Type::All(
                 param.clone(),
                 Box::new(typecheck(body, context)?),
+                Box::new(bound.clone()),
             ));
             context.pop();
             result
@@ -52,7 +53,7 @@ pub fn typecheck(
             _ => Err(TypeError::FuncApp),
         },
         Term::TyApp(box func, ty) => match typecheck(func, context)? {
-            Type::All(s, box body) => Ok(body.clone().applysubst(&s, ty)),
+            Type::All(s, box body, _) => Ok(body.clone().applysubst(&s, ty)),
             _ => Err(TypeError::TyFuncApp),
         },
         Term::Arith(box left, op, box right) => {
@@ -127,8 +128,6 @@ pub fn typecheck(
             }
         }
         Term::InfAbs(_, _)
-        | Term::BoundedTyAbs(_, _, _)
-        | Term::KindedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)

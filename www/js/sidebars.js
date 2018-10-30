@@ -374,15 +374,18 @@ const FSub = (props) => {
 const FOmega = (props) => {
     const typair =
 `type Pair = tyfun (A: *) (B: *) =>
-    ∀X: *. (A -> B -> X) -> X`
+    ∀X. (A -> B -> X) -> X`
     const pairfunc =
+`let pair = fun[A, B] (x: A) (y: B) ->
+    (fun[X] (z: A -> B -> X) -> z x y)`;
+    const pairfuncexpl =
 `let pair = fun[A: *, B: *] (x: A) (y: B) ->
     (fun[X: *] (z: A -> B -> X) -> z x y)`;
     const fst =
-`let fst = fun[A: *, B: *] (p: Pair A B) ->
+`let fst = fun[A, B] (p: Pair A B) ->
     p[A] (fun (x: A) (y: B) -> x)`;
     const snd =
-`let snd = fun[A: *, B: *] (p: Pair A B) ->
+`let snd = fun[A, B] (p: Pair A B) ->
     p[B] (fun (x: A) (y: B) -> y)`;
     const usage1 =
 `let p = pair[Int, Bool] 1 true in
@@ -406,8 +409,13 @@ const FOmega = (props) => {
             First we can define a type operator that will create a pair type with
             the given type parameters:
             <CodeBlock evalLine={props.evalLine} code={typair} />
-            then we can define our pair function,
+            then we can define our pair function
             <CodeBlock evalLine={props.evalLine} code={pairfunc} />
+            note that the type parameters {' '}<code>A</code>{' '} and
+            {' '}<code>B</code>{' '} are assumed to have kind
+            {' '}<code>*</code>{' '} when none are specified. We could also
+            specify them explicitly like so:
+            <CodeBlock evalLine={props.evalLine} code={pairfuncexpl} />
             a getter function for the first element of the pair,
             <CodeBlock evalLine={props.evalLine} code={fst} />
             and one for the second element of the pair

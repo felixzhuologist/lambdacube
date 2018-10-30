@@ -9,6 +9,7 @@ use errors::TypeError;
 use kindcheck::kindcheck;
 use syntax::{Substitutable, Term, Type};
 use typecheck::omega::Simplify;
+use typecheck::sub::get_kind;
 
 pub fn typecheck(
     term: &Term,
@@ -35,13 +36,13 @@ pub fn typecheck(
             type_ctx.pop();
             result
         }
-        Term::KindedTyAbs(param, box body, kind) => {
+        Term::TyAbs(param, box body, bound) => {
             type_ctx.push(param.clone(), Type::Var(param.clone()));
-            kind_ctx.push(param.clone(), kind.clone());
-            let result = Ok(Type::KindedAll(
+            kind_ctx.push(param.clone(), get_kind(bound));
+            let result = Ok(Type::All(
                 param.clone(),
                 Box::new(typecheck(body, type_ctx, kind_ctx)?),
-                kind.clone(),
+                Box::new(bound.clone()),
             ));
             type_ctx.pop();
             kind_ctx.pop();
@@ -62,9 +63,10 @@ pub fn typecheck(
             let expected = kindcheck(ty, kind_ctx)
                 .map_err(|e| TypeError::KindError(e.to_string()))?;
             match typecheck(func, type_ctx, kind_ctx)? {
-                Type::KindedAll(s, box body, kind) => {
-                    if kind != expected {
-                        Err(TypeError::KindMismatch(expected, kind.clone()))
+                Type::All(s, box body, box bound) => {
+                    let actual = get_kind(&bound);
+                    if actual != expected {
+                        Err(TypeError::KindMismatch(expected, actual))
                     } else {
                         Ok(body.clone().applysubst(&s, ty))
                     }
@@ -114,11 +116,9 @@ pub fn typecheck(
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _)
-        | Term::InfAbs(_, _)
+        Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::BoundedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)
@@ -153,30 +153,32 @@ pub mod tests {
         );
 
         let pairtype =
-            "tyfun (Fst: *) (Snd: *) => ∀X: *. (Fst -> Snd -> X) -> X";
+            "tyfun (Fst: *) (Snd: *) => ∀X. (Fst -> Snd -> X) -> X";
         let pair =
-            "fun[Fst: *, Snd: *] (x: Fst) (y: Snd) -> (fun[X: *] (z: Fst -> Snd -> X) -> z x y)";
+            "fun[Fst, Snd] (x: Fst) (y: Snd) -> (fun[X] (z: Fst -> Snd -> X) -> z x y)";
         assert_eq!(
             typecheck_code(pair),
-            "∀Fst: *. ∀Snd: *. (Fst -> (Snd -> ∀X: *. ((Fst -> (Snd -> X)) -> X)))");
+            "∀Fst. ∀Snd. (Fst -> (Snd -> ∀X. ((Fst -> (Snd -> X)) -> X)))");
 
         let fst = format!(
-            "fun[Fst: *, Snd: *] (p: ({}) Fst Snd) -> p[Fst] (fun (x: Fst) (y: Snd) -> x)",
+            "fun[Fst, Snd] (p: ({}) Fst Snd) -> p[Fst] (fun (x: Fst) (y: Snd) -> x)",
             pairtype);
         assert_eq!(
             typecheck_code(&fst),
-            "∀Fst: *. ∀Snd: *. (∀X: *. ((Fst -> (Snd -> X)) -> X) -> Fst)");
+            "∀Fst. ∀Snd. (∀X. ((Fst -> (Snd -> X)) -> X) -> Fst)"
+        );
 
         let snd = format!(
-            "fun[Fst: *, Snd: *] (p: ({}) Fst Snd) -> p[Snd] (fun (x: Fst) (y: Snd) -> y)",
+            "fun[Fst, Snd] (p: ({}) Fst Snd) -> p[Snd] (fun (x: Fst) (y: Snd) -> y)",
             pairtype);
         assert_eq!(
             typecheck_code(&snd),
-            "∀Fst: *. ∀Snd: *. (∀X: *. ((Fst -> (Snd -> X)) -> X) -> Snd)");
+            "∀Fst. ∀Snd. (∀X. ((Fst -> (Snd -> X)) -> X) -> Snd)"
+        );
 
         assert_eq!(
             typecheck_code(&format!("({})[Int, Bool] 1 true", pair)),
-            "∀X: *. ((Int -> (Bool -> X)) -> X)"
+            "∀X. ((Int -> (Bool -> X)) -> X)"
         );
         assert_eq!(
             typecheck_code(&format!(

@@ -78,13 +78,11 @@ pub fn typecheck(
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _)
+        Term::TyAbs(_, _, _)
         | Term::TyApp(_, _)
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::KindedTyAbs(_, _, _)
-        | Term::BoundedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)
@@ -126,10 +124,7 @@ pub fn has_ty_operators(ty: &Type) -> bool {
                 .iter()
                 .any(|(_, ref val)| has_ty_operators(val))
         }
-        Type::All(_, ref fun) | Type::KindedAll(_, ref fun, _) => {
-            has_ty_operators(fun)
-        }
-        Type::BoundedAll(_, ref l, ref r)
+        Type::All(_, ref l, ref r)
         | Type::Arr(ref l, ref r)
         | Type::QArr(ref l, ref r) => {
             has_ty_operators(l) || has_ty_operators(r)

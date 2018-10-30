@@ -1,11 +1,15 @@
 use assoclist::AssocList;
 use std::fmt;
-use syntax::{Kind, Substitutable, Type};
+use syntax::{Substitutable, Type};
 
 // Note: when adding new type features, so far the convention has been to add a
 // new term rather than override a previous term. This might increase the amount
 // of boilerplate but it makes more explicit which typesystems know about what
-// kinds of terms
+// kinds of terms (e.g. TyAbs and InfAbs are separate terms).
+// The exception is quantifier types: they both (universal/existential) always
+// have a bound, which is implicitly Top in a type system without bounded
+// quantification. Otherwise there are two many combinations to handle if we
+// want to allow implicit kind/bounds
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Term {
     Bool(bool),
@@ -13,10 +17,8 @@ pub enum Term {
     Var(String),
     Int(i32),
     Abs(String, Type, Box<Term>),
-    // These take arbitrary terms but the grammar forces them to be abstractions
-    TyAbs(String, Box<Term>),
-    KindedTyAbs(String, Box<Term>, Kind),
-    BoundedTyAbs(String, Box<Term>, Type),
+    // this take an arbitrary term but the grammar forces it to be an abstraction
+    TyAbs(String, Box<Term>, Type),
     InfAbs(String, Box<Term>),
     App(Box<Term>, Box<Term>),
     TyApp(Box<Term>, Type),
@@ -53,9 +55,7 @@ impl Term {
             | Term::QBool(_)
             | Term::Abs(_, _, _)
             | Term::QAbs(_, _, _)
-            | Term::TyAbs(_, _)
-            | Term::KindedTyAbs(_, _, _)
-            | Term::BoundedTyAbs(_, _, _)
+            | Term::TyAbs(_, _, _)
             | Term::InfAbs(_, _) => true,
             Term::Not(box t) => t.is_val(),
             Term::Pack(_, fields, _)
@@ -88,9 +88,7 @@ impl fmt::Display for Term {
             Term::Abs(_, _, _)
             | Term::QAbs(_, _, _)
             | Term::InfAbs(_, _)
-            | Term::TyAbs(_, _)
-            | Term::KindedTyAbs(_, _, _)
-            | Term::BoundedTyAbs(_, _, _) => write!(f, "<fun>"),
+            | Term::TyAbs(_, _, _) => write!(f, "<fun>"),
             Term::App(ref func, ref arg) => write!(f, "{} {}", func, arg),
             Term::TyApp(ref func, ref arg) => write!(f, "{} [{}]", func, arg),
             Term::Arith(ref l, ref op, ref r) => {
@@ -142,17 +140,9 @@ impl Substitutable<Term> for Term {
             } else {
                 InfAbs(param, Box::new(body))
             },
-            TyAbs(param, box body) => {
+            TyAbs(param, box body, ty) => {
                 let body = body.applysubst(varname, var);
-                TyAbs(param, Box::new(body))
-            }
-            KindedTyAbs(param, box body, kind) => {
-                let body = body.applysubst(varname, var);
-                KindedTyAbs(param, Box::new(body), kind)
-            }
-            BoundedTyAbs(param, box body, ty) => {
-                let body = body.applysubst(varname, var);
-                BoundedTyAbs(param, Box::new(body), ty)
+                TyAbs(param, Box::new(body), ty)
             }
             App(box func, box val) => App(
                 Box::new(func.applysubst(varname, var)),
@@ -255,18 +245,6 @@ impl fmt::Display for BoolOp {
             BoolOp::Or => write!(f, "or"),
         }
     }
-}
-
-/// The possible type params of a polymorphic function
-// this is used in the grammar definitions but i'm not sure how to add generic
-// rust code inside the grammar file so sticking it here for now...
-pub enum TypeParam {
-    /// e.g. f[A, B, C]
-    Regular,
-    /// e.g. f[A <: Int, B <: {a: Int}, C <: Bool]
-    Bounded(Type),
-    /// e.g. f[A: *, B: * -> *]
-    Kinded(Kind),
 }
 
 #[cfg(test)]

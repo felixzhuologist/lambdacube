@@ -13,9 +13,7 @@ pub fn kindcheck(ty: &Type, ctx: &mut KindContext) -> Result<Kind, KindError> {
         | Type::QArr(_, _)
         | Type::Record(_)
         | Type::QRec(_)
-        | Type::All(_, _)
-        | Type::KindedAll(_, _, _)
-        | Type::BoundedAll(_, _, _)
+        | Type::All(_, _, _)
         | Type::Some(_, _) => Ok(Kind::Star),
         Type::Var(s) => {
             ctx.lookup(s).ok_or(KindError::NameError(s.to_string()))

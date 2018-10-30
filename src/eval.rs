@@ -51,9 +51,7 @@ impl EvalStep<Term, EvalError> for Term {
             App(box InfAbs(argname, box body), box arg) if arg.is_reduced() => {
                 Ok(body.clone().applysubst(&argname, arg))
             }
-            TyApp(box BoundedTyAbs(_, box body, _), _)
-            | TyApp(box KindedTyAbs(_, box body, _), _)
-            | TyApp(box TyAbs(_, box body), _) => Ok(body.clone()),
+            TyApp(box TyAbs(_, box body, _), _) => Ok(body.clone()),
             App(func, box arg) if func.is_val() => {
                 Ok(App(func.clone(), Box::new(arg.eval_step(ctx)?)))
             }
@@ -180,28 +178,12 @@ impl Eval<Type, TypeError> for Type {
             )),
             Type::Record(fields) => Ok(Type::Record(fields.eval(ctx)?)),
             Type::QRec(fields) => Ok(Type::QRec(fields.eval(ctx)?)),
-            Type::All(s, ref ty) => {
+            Type::All(s, ref ty, ref bound) => {
                 ctx.push(s.clone(), Type::Var(s.clone()));
-                let result = Ok(Type::All(s.clone(), Box::new(ty.eval(ctx)?)));
-                ctx.pop();
-                result
-            }
-            Type::BoundedAll(s, ref ty, ref bound) => {
-                ctx.push(s.clone(), Type::Var(s.clone()));
-                let result = Ok(Type::BoundedAll(
+                let result = Ok(Type::All(
                     s.clone(),
                     Box::new(ty.eval(ctx)?),
                     Box::new(bound.eval(ctx)?),
-                ));
-                ctx.pop();
-                result
-            }
-            Type::KindedAll(s, ref ty, kind) => {
-                ctx.push(s.clone(), Type::Var(s.clone()));
-                let result = Ok(Type::KindedAll(
-                    s.clone(),
-                    Box::new(ty.eval(ctx)?),
-                    kind.clone(),
                 ));
                 ctx.pop();
                 result

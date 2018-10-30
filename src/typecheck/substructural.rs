@@ -106,13 +106,11 @@ pub fn typecheck(
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _)
+        Term::TyAbs(_, _, _)
         | Term::TyApp(_, _)
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
-        | Term::Unpack(_, _, _, _)
-        | Term::KindedTyAbs(_, _, _)
-        | Term::BoundedTyAbs(_, _, _) => Err(TypeError::Unsupported),
+        | Term::Unpack(_, _, _, _) => Err(TypeError::Unsupported),
     }
 }
 
@@ -209,9 +207,11 @@ pub mod tests {
         );
         assert_eq!(
             typecheck_code("lin {a=1, b=lin 2}"),
-            "lin {a: Int, b: lin Int}");
+            "lin {a: Int, b: lin Int}"
+        );
         assert_eq!(
             typecheck_code("{a=1, b=lin 2}"),
-            "Unrestricted records cannot have fields with linear values");
+            "Unrestricted records cannot have fields with linear values"
+        );
     }
 }

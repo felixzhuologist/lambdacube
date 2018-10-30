@@ -84,13 +84,11 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _)
+        Term::TyAbs(_, _, _)
         | Term::TyApp(_, _)
         | Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::KindedTyAbs(_, _, _)
-        | Term::BoundedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)
@@ -127,8 +125,8 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
         (Type::BoundedVar(_, ref bound), ty) => is_subtype(bound, ty, ctx),
         // TODO: this assumes that the two bounds are already exposed
         (
-            Type::BoundedAll(ref s1, box ty1, ref bound1),
-            Type::BoundedAll(ref s2, box ty2, ref bound2),
+            Type::All(ref s1, box ty1, ref bound1),
+            Type::All(ref s2, box ty2, ref bound2),
         )
             if bound1 == bound2 =>
         {
@@ -153,12 +151,23 @@ pub fn is_subtype(left: &Type, right: &Type, ctx: &mut Context) -> bool {
 }
 
 /// Returns the supertype with the given kind
-fn get_top(kind: &Kind) -> Type {
+pub fn get_top(kind: &Kind) -> Type {
     match kind {
         Kind::Star => Type::Top,
         Kind::Arr(box from, box to) => {
             Type::TyAbs(String::from("_"), from.clone(), Box::new(get_top(to)))
         }
+    }
+}
+
+/// Converts output of get_top() back to a kind
+pub fn get_kind(ty: &Type) -> Kind {
+    match ty {
+        Type::Top => Kind::Star,
+        Type::TyAbs(_, from, box to) => {
+            Kind::Arr(Box::new(from.clone()), Box::new(get_kind(to)))
+        }
+        _ => panic!("should not get here"),
     }
 }
 
@@ -207,12 +216,12 @@ mod tests {
         let f2 = Type::Arr(Box::new(big_rec.clone()), Box::new(deep.clone()));
         assert!(is_subtype(&f1, &f2, &mut ctx));
 
-        let poly1 = Type::BoundedAll(
+        let poly1 = Type::All(
             String::from("X"),
             Box::new(big_rec.clone()),
             Box::new(Type::Int),
         );
-        let poly2 = Type::BoundedAll(
+        let poly2 = Type::All(
             String::from("X"),
             Box::new(small_rec.clone()),
             Box::new(Type::Int),

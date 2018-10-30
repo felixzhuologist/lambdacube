@@ -32,7 +32,7 @@ pub fn typecheck(
             type_ctx.pop();
             result
         }
-        Term::BoundedTyAbs(param, box body, bound) => {
+        Term::TyAbs(param, box body, bound) => {
             let bound = bound.simplify(param, type_ctx, kind_ctx)?;
             type_ctx.push(
                 param.clone(),
@@ -41,12 +41,13 @@ pub fn typecheck(
             let bound_kind = kindcheck(&bound, kind_ctx)
                 .map_err(|e| TypeError::KindError(e.to_string()))?;
             kind_ctx.push(param.clone(), bound_kind);
-            let result = Ok(Type::BoundedAll(
+            let result = Ok(Type::All(
                 param.clone(),
                 Box::new(typecheck(body, type_ctx, kind_ctx)?),
                 Box::new(bound),
             ));
             type_ctx.pop();
+            kind_ctx.pop();
             result
         }
         Term::App(box func, box val) => {
@@ -66,10 +67,7 @@ pub fn typecheck(
                     ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))
                 })?;
             match functy {
-                Type::All(s, box body) => {
-                    Ok(body.clone().applysubst(&s, argty))
-                }
-                Type::BoundedAll(s, box body, box bound) => {
+                Type::All(s, box body, box bound) => {
                     if !is_subtype(argty, &bound, type_ctx) {
                         Err(TypeError::BoundArgMismatch(
                             bound.clone(),
@@ -124,11 +122,9 @@ pub fn typecheck(
                 .ok_or(TypeError::InvalidKey(key.clone())),
             _ => Err(TypeError::ProjectNonRecord),
         },
-        Term::TyAbs(_, _)
-        | Term::InfAbs(_, _)
+        Term::InfAbs(_, _)
         | Term::Pack(_, _, _)
         | Term::Unpack(_, _, _, _)
-        | Term::KindedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)

@@ -30,20 +30,13 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             ctx.pop();
             result
         }
-        Term::TyAbs(param, box body) => {
-            ctx.push(param.clone(), Type::Var(param.clone()));
-            let result =
-                Ok(Type::All(param.clone(), Box::new(typecheck(body, ctx)?)));
-            ctx.pop();
-            result
-        }
-        Term::BoundedTyAbs(param, box body, bound) => {
+        Term::TyAbs(param, box body, bound) => {
             let bound = bound.resolve(ctx)?;
             ctx.push(
                 param.clone(),
                 Type::BoundedVar(param.clone(), Box::new(bound.clone())),
             );
-            let result = Ok(Type::BoundedAll(
+            let result = Ok(Type::All(
                 param.clone(),
                 Box::new(typecheck(body, ctx)?),
                 Box::new(bound),
@@ -67,10 +60,7 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
                 ty.expose(ctx).map_err(|s| TypeError::NameError(s))
             })?;
             match functy {
-                Type::All(s, box body) => {
-                    Ok(body.clone().applysubst(&s, argty))
-                }
-                Type::BoundedAll(s, box body, box bound) => {
+                Type::All(s, box body, box bound) => {
                     if !is_subtype(argty, &bound, ctx) {
                         Err(TypeError::BoundArgMismatch(
                             bound.clone(),
@@ -165,7 +155,6 @@ pub fn typecheck(term: &Term, ctx: &mut Context) -> Result<Type, TypeError> {
             }
         }
         Term::InfAbs(_, _)
-        | Term::KindedTyAbs(_, _, _)
         | Term::QBool(_)
         | Term::QInt(_)
         | Term::QAbs(_, _, _)

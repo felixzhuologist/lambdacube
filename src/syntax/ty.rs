@@ -12,9 +12,7 @@ pub enum Type {
     Record(AssocList<String, Type>),
     Var(String),
     BoundedVar(String, Box<Type>),
-    All(String, Box<Type>),
-    BoundedAll(String, Box<Type>, Box<Type>),
-    KindedAll(String, Box<Type>, Kind),
+    All(String, Box<Type>, Box<Type>),
     // We only allow the value component of an existential to be a record
     Some(String, AssocList<String, Type>),
     TyAbs(String, Kind, Box<Type>),
@@ -76,13 +74,10 @@ impl fmt::Display for Type {
             Type::Record(ref rec) => write!(f, "{{{}}}", rec),
             Type::QRec(ref rec) => write!(f, "lin {{{}}}", rec),
             Type::BoundedVar(ref s, _) | Type::Var(ref s) => write!(f, "{}", s),
-            Type::All(ref s, ref ty) => write!(f, "∀{}. {}", s, ty),
-            Type::BoundedAll(ref s, ref ty, ref bound) => {
-                write!(f, "∀{} <: {}. {}", s, bound, ty)
-            }
-            Type::KindedAll(ref s, ref ty, ref kind) => {
-                write!(f, "∀{}: {}. {}", s, kind, ty)
-            }
+            Type::All(ref s, ref ty, ref bound) => match **bound {
+                Type::Top => write!(f, "∀{}. {}", s, ty),
+                _ => write!(f, "∀{} <: {}. {}", s, bound, ty),
+            },
             Type::Some(ref s, ref sigs) => write!(f, "∃{}. {}", s, sigs),
             Type::TyAbs(_, _, _) => write!(f, "<tyfun>"),
             Type::TyApp(ref func, ref arg) => write!(f, "{} {}", func, arg),
@@ -115,24 +110,14 @@ impl Substitutable<Type> for Type {
             } else {
                 BoundedVar(s, bound)
             },
-            All(param, box body) => if param != varname {
-                All(param, Box::new(body.applysubst(varname, var)))
-            } else {
-                All(param, Box::new(body))
-            },
-            BoundedAll(param, box body, box bound) => if param != varname {
-                BoundedAll(
+            All(param, box body, box bound) => if param != varname {
+                All(
                     param,
                     Box::new(body.applysubst(varname, var)),
                     Box::new(bound),
                 )
             } else {
-                BoundedAll(param, Box::new(body), Box::new(bound))
-            },
-            KindedAll(param, box body, bound) => if param != varname {
-                KindedAll(param, Box::new(body.applysubst(varname, var)), bound)
-            } else {
-                KindedAll(param, Box::new(body), bound)
+                All(param, Box::new(body), Box::new(bound))
             },
             Type::Some(param, sigs) => if param != varname {
                 Type::Some(param, sigs.applysubst(varname, var))
@@ -167,6 +152,7 @@ mod tests {
         let func = Type::All(
             String::from("X"),
             Box::new(Type::Var(String::from("X"))),
+            Box::new(Type::Top),
         );
         assert_eq!(func.clone().applysubst(&varname, &var), func);
     }
