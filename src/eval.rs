@@ -197,7 +197,7 @@ impl Eval<Type, TypeError> for Type {
             }
             Type::TyApp(ref func, ref arg) => match func.eval(ctx)? {
                 Type::TyAbs(argname, _, box body) => {
-                    Ok(body.applysubst(&argname, &arg.eval(ctx)?))
+                    Ok(body.applysubst(&argname, &arg.eval(ctx)?).eval(ctx)?)
                 }
                 // if this didn't fail kindchecking, then func must be a variable
                 // that has a valid kind but is not known yet, so this is as
@@ -387,6 +387,14 @@ mod tests {
         assert_eq!(eval_ty_e2e("forall X . X -> X"), "∀X. (X -> X)");
         assert_eq!(eval_ty_e2e("tyfun (X: *) => X -> X"), "<tyfun>");
         assert_eq!(eval_ty_e2e("(tyfun (X: *) => X -> X) Int"), "(Int -> Int)");
+        assert_eq!(
+            eval_ty_e2e(
+                "
+                (tyfun (M: * -> *) => module sig type X val state : M X end)
+                (tyfun (R: *) => Int)"
+            ),
+            "∃X. state: Int"
+        );
     }
 
     #[test]

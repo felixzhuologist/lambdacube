@@ -11,7 +11,6 @@ use eval::Eval;
 use kindcheck::kindcheck;
 use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::omega::Simplify;
-use typecheck::simple::Resolve;
 use typecheck::sub::get_kind;
 
 pub fn typecheck(
@@ -120,8 +119,7 @@ pub fn typecheck(
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::Pack(witness, impls, ty) => {
-            let ty =
-                ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))?;
+            let ty = ty.eval(type_ctx)?;
             if let Type::Some(name, bound, sigs) = ty {
                 let bound_kind = get_kind(&bound);
                 let (witness, witness_kind) =
@@ -135,12 +133,11 @@ pub fn typecheck(
                     ));
                 }
 
-                let mut expected = sigs
-                    .clone()
-                    .applysubst(&name, &witness)
-                    .resolve(type_ctx)?;
-                let mut actual =
-                    impls.map_typecheck_kind(typecheck, type_ctx, kind_ctx)?;
+                let mut expected =
+                    sigs.clone().applysubst(&name, &witness).eval(type_ctx)?;
+                let mut actual = impls
+                    .map_typecheck_kind(typecheck, type_ctx, kind_ctx)?
+                    .eval(type_ctx)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {
@@ -247,7 +244,10 @@ pub mod tests {
             ),
             "Module hidden type must have kind *"
         );
+    }
 
+    #[test]
+    fn churchpair() {
         let pairtype =
             "tyfun (Fst: *) (Snd: *) => ∀X. (Fst -> Snd -> X) -> X";
         let pair =
@@ -289,6 +289,33 @@ pub mod tests {
                 snd, pair
             )),
             "Bool"
+        );
+    }
+
+    #[test]
+    fn counterclass() {
+        let counterm = "tyfun (R: *) => {get: R -> Int, inc: R -> R}";
+        let obj = "tyfun (M: * -> *) =>
+                        module sig
+                            type X
+                            val state : X
+                            val methods : M X
+                        end";
+        let counterty = format!("({}) ({})", obj, counterm);
+        let counter = format!(
+            "module ops
+                type {{x: Int}}
+                val state = {{x=5}}
+                val methods = {{
+                    get = fun (r: {{x: Int}}) -> r.x,
+                    inc = fun (r: {{x: Int}}) -> {{x=r.x + 1}}
+                }}
+            end as ({})",
+            counterty
+        );
+        assert_eq!(
+            typecheck_code(&counter),
+            "∃X. state: X, methods: <tyfun> X"
         );
     }
 }

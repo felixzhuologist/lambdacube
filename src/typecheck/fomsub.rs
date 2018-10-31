@@ -6,7 +6,6 @@ use eval::Eval;
 use kindcheck::kindcheck;
 use syntax::{Kind, Substitutable, Term, Type};
 use typecheck::omega::Simplify;
-use typecheck::simple::Resolve;
 use typecheck::sub::is_subtype;
 
 pub fn typecheck(
@@ -145,8 +144,7 @@ pub fn typecheck(
             _ => Err(TypeError::ProjectNonRecord),
         },
         Term::Pack(witness, impls, ty) => {
-            let ty =
-                ty.expose(type_ctx).map_err(|s| TypeError::NameError(s))?;
+            let ty = ty.eval(type_ctx)?;
             if let Type::Some(name, box bound, sigs) = ty {
                 if !is_subtype(witness, &bound, type_ctx) {
                     return Err(TypeError::BoundArgMismatch(
@@ -155,13 +153,11 @@ pub fn typecheck(
                     ));
                 }
 
-                let mut expected = sigs
-                    .clone()
-                    .applysubst(&name, witness)
-                    .resolve(type_ctx)?;
+                let mut expected =
+                    sigs.clone().applysubst(&name, witness).eval(type_ctx)?;
                 let mut actual = impls
                     .map_typecheck_kind(typecheck, type_ctx, kind_ctx)?
-                    .resolve(type_ctx)?;
+                    .eval(type_ctx)?;
                 expected.inner.sort_by_key(|(s, _)| s.clone());
                 actual.inner.sort_by_key(|(s, _)| s.clone());
                 if actual == expected {

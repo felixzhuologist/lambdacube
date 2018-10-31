@@ -195,10 +195,8 @@ mod tests {
     fn subtyping() {
         let mut ctx = TypeContext::empty();
 
-        let small_assoclist = AssocList::from_vec(vec![(
-            "a".to_string(),
-            Type::Int,
-        )]);
+        let small_assoclist =
+            AssocList::from_vec(vec![("a".to_string(), Type::Int)]);
         let big_assoclist = AssocList::from_vec(vec![
             ("a".to_string(), Type::Int),
             ("b".to_string(), Type::Bool),
