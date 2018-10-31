@@ -204,15 +204,9 @@ double id_int 0`;
 }
 
 const SysF = (props) => {
-    const universal = `type Id = ∀X . X -> X`;
     const idfunc = `let id = fun[T] (x: T) -> x`;
     const tyapp = `let f = id[Int] in f 0`;
     const impredic = `fun (x: forall X . X -> X) -> x[Int] 0`;
-    const exist =
-`∃Counter.
-    new: Counter,
-    get: (Counter -> Int),
-    inc: (Counter -> Counter)`;
     const counterty =
 `type CounterADT = module sig
     type Counter
@@ -249,7 +243,11 @@ end as (CounterADT)`;
             Universally quantified types (or universal types for short) get their
             name from the universal quantifier in logic. In fact, you can find a
             universal quantifier in the type itself:
-            <CodeBlock evalLine={props.evalLine} code={universal} />
+            <pre>
+                <code className="language-typezoo">
+                    {`type Id = ∀X . X -> X`}
+                </code>
+            </pre>
             this type describes a value that can take any type {' '}<code>X</code>{' '}
             and return a function from {' '}<code>X -> X</code>. The simplest
             example of a value with such a type would be the identity function:
@@ -277,7 +275,15 @@ end as (CounterADT)`;
             Existential types also get their name from the corresponding logical
             quantifier, but the meaning may be less obvious. Here's an example
             of an existential type:
-            <CodeBlock evalLine={props.evalLine} code={exist} />
+            <pre>
+                <code className="language-typezoo">
+{`∃Counter.
+    new: Counter,
+    get: (Counter -> Int),
+    inc: (Counter -> Counter)`}
+                </code>
+            </pre>
+
             what this says is that there exists <i>some</i> type
             {' '}<code>Counter</code>{' '} that we as the user don't have access to,
             with functions {' '}<code>new, get</code>,  and {' '}<code>inc</code>{' '}
@@ -303,7 +309,7 @@ end as (CounterADT)`;
             the implementation of the abstract data type - let's say we represent
             the {' '}<code>Counter</code>{' '} using a {' '}<code>Record</code>
             {' '} instead of an {' '}<code>Int</code>{' '}
-            <CodeBlock evalLine={props.evalLine} code={counterimpl} />
+            <CodeBlock evalLine={props.evalLine} code={counterimplrec} />
             the interface that is exposed to the rest of the world would
             remain the same, and our code from before would work with our new
             implementation
@@ -428,40 +434,93 @@ const FOmega = (props) => {
 }
 
 const FOmegaSub = (props) => {
-    const counterty =
-`type Counter = module sig
-    type T
-    val state : T
-    val methods : {
-        get: T -> Int,
-        inc: T -> T
-    }
-end`;
+    const counterm =
+`type CounterM = tyfun (R: *) =>
+    {get: R -> Int, inc: R -> R}`;
+    const obj =
+`type Object = tyfun (M: * -> *) =>
+    module sig
+        type X
+        val state : X
+        val methods : M X
+    end`;
+    const counter = `type Counter = Object CounterM`;
     const counterimpl =
 `let counter = module ops
-    type {x: Nat}
+    type {x: Int}
     val state = {x=5}
     val methods = {
-        get = fun (r: {x: Nat}) -> r.x,
-        inc = fun (r: {x: Nat}) -> {x=r.x + 1}
+        get = fun (r: {x: Int}) -> r.x,
+        inc = fun (r: {x: Int}) -> {x=r.x + 1}
     }
 end as (Counter)`;
+    const sendget =
+`let sendget = fun (c: Counter) ->
+    open c as body: X in
+    body.methods.get body.state`;
+    const sendinc =
+`let sendinc = fun[M <: CounterM] (c: Object M) ->
+    open c as body: X in
+    module ops
+        type X
+        val state = body.methods.inc body.state
+        val methods = body.methods
+    end as (Object M)`;
+    const addthree =
+`let addthree = fun[M <: CounterM] (c: Object M) ->
+    sendinc[M] (sendinc[M] (sendinc[M] c))`;
+    const resetcounterm =
+`type ResetCounterM = tyfun (R: *) =>
+    {get: R -> Int, inc: R -> R, reset: R -> R}`;
+    const rc = `type ResetCounter = Object ResetCounterM`;
+    const rcimpl =
+`let rc = module ops
+    type {x: Int}
+    val state = {x=0}
+    val methods = {
+        get = fun (r: {x: Int}) -> r.x,
+        inc = fun (r: {x: Int}) -> {x=r.x + 1},
+        reset = fun (r: {x: Int}) -> {x=0}
+    }
+end as (ResetCounter)`;
 
     return (
         <div className="sidebar">
             <h6>System F Omega Sub</h6>
 
-            With subtyping, polymorphism, and type operators all together, we
-            can do some pretty exciting things. Let's look at an example
-            program which leverages all of these features (based on ch. 32 of
-            TAPL).<br/><br/>
+            Let's look at an example of a program that uses subtyping, polymorphism,
+            and type operators together. We'll be writing a program that
+            implements a form of interface subtyping, using (as usual) our
+            trusty {' '}<code>Counter</code>{' '} ADT. <br/><br/>
 
-            Let's start with the counter abstract data type we defined in the
-            section on system F. This time, to make it more "class" like, we
-            separate out the state and the methods of the module.
-            <CodeBlock evalLine={props.evalLine} code={counterty} />
-            and we'll implement it with a record as the concrete type
+            We start out with a type operator that takes a hidden type and
+            returns the methods of a {' '}<code>Counter</code>{' '} with that
+            hidden type
+            <CodeBlock evalLine={props.evalLine} code={counterm} />
+            then we define a type operator that given such a method type operator,
+            returns a new existential type with those methods
+            <CodeBlock evalLine={props.evalLine} code={obj} />
+            and we can use those two type operators to get our
+            {' '}<code>Counter</code>{' '} type
+            <CodeBlock evalLine={props.evalLine} code={counter} /><br/>
+
+            Now we can actual add an implementation of the
+            {' '}<code>Counter</code>, using a {' '}<code>Record</code>{' '} as
+            the hidden type
             <CodeBlock evalLine={props.evalLine} code={counterimpl} />
+            and we can define function that unpack and use the methods of the
+            module
+            <CodeBlock evalLine={props.evalLine} code={sendget} />
+            <CodeBlock evalLine={props.evalLine} code={sendinc} />
+            <CodeBlock evalLine={props.evalLine} code={addthree} /><br/>
+
+            The magical part is that we can define a new set of methods for a
+            more specific kind of {' '}<code>Counter</code>{' '}
+            <CodeBlock evalLine={props.evalLine} code={resetcounterm} />
+            <CodeBlock evalLine={props.evalLine} code={rc} />
+            <CodeBlock evalLine={props.evalLine} code={rcimpl} />
+            And the functions we define earlier will still work thanks to subtyping
+            <br/>
         </div>
     )
 }

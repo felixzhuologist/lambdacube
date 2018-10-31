@@ -86,6 +86,7 @@ class App extends React.Component {
         this.startPrompt();
     }
 
+    // TODO: textarea wraps correctly but the syntax highlighted code doesn't
     render() {
         let Sidebar = this.props.sidebars[this.state.sidebarId];
         return ([
